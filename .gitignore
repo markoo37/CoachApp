@@ -1,0 +1,64 @@
+############################
+# GLOBAL IGNORE SETTINGS
+############################
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE / Editor
+.vscode/
+.idea/
+
+# Environment files
+.env
+.env.*
+
+
+############################
+# BACKEND (.NET)
+############################
+# Build results
+bin/
+obj/
+out/
+[Bb]uild/
+[Bb]in/
+[Oo]bj/
+*.user
+*.rsuser
+*.suo
+*.userosscache
+*.sln.docstates
+*.dbmdl
+
+# Visual Studio
+.vs/
+
+# Logs
+*.log
+
+# Others
+*.local.json
+
+
+############################
+# FRONTEND (React)
+############################
+frontend/node_modules/
+frontend/build/
+frontend/.next/
+frontend/dist/
+frontend/.turbo/
+
+
+############################
+# MOBILE (React Native / Expo)
+############################
+mobile/node_modules/
+mobile/.expo/
+mobile/.expo-shared/
+mobile/dist/
+mobile/build/
+mobile/ios/
+mobile/android/
