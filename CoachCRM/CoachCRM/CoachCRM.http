@@ -1,0 +1,6 @@
+@CoachCRM_HostAddress = http://localhost:5067
+
+GET {{CoachCRM_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

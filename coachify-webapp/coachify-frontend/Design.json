@@ -1,0 +1,299 @@
+{
+    "designSystem": {
+      "name": "Modern Dashboard Design System",
+      "version": "1.0.0",
+      "description": "Clean, card-based dashboard design with vibrant accents and excellent data visualization",
+      
+      "colorPalette": {
+        "primary": {
+          "main": "#2196F3",
+          "light": "#64B5F6", 
+          "dark": "#1976D2",
+          "description": "Vibrant blue used for primary actions and highlights"
+        },
+        "secondary": {
+          "main": "#9C27B0",
+          "light": "#CE93D8",
+          "dark": "#7B1FA2",
+          "description": "Purple accent for secondary elements and variety"
+        },
+        "background": {
+          "primary": "#FFFFFF",
+          "secondary": "#F8F9FA",
+          "tertiary": "#F3F4F6",
+          "description": "Clean white and light gray backgrounds"
+        },
+        "text": {
+          "primary": "#1F2937",
+          "secondary": "#6B7280",
+          "tertiary": "#9CA3AF",
+          "inverse": "#FFFFFF",
+          "description": "Hierarchical text colors for clear readability"
+        },
+        "status": {
+          "success": "#10B981",
+          "warning": "#F59E0B", 
+          "error": "#EF4444",
+          "info": "#3B82F6",
+          "description": "Status colors for different states and feedback"
+        },
+        "accent": {
+          "cyan": "#06B6D4",
+          "purple": "#8B5CF6",
+          "pink": "#EC4899",
+          "description": "Additional accent colors for charts and highlights"
+        }
+      },
+  
+      "typography": {
+        "fontFamily": {
+          "primary": "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+          "description": "Modern, clean sans-serif with excellent readability"
+        },
+        "fontSizes": {
+          "xs": "0.75rem",
+          "sm": "0.875rem", 
+          "base": "1rem",
+          "lg": "1.125rem",
+          "xl": "1.25rem",
+          "2xl": "1.5rem",
+          "3xl": "1.875rem",
+          "4xl": "2.25rem"
+        },
+        "fontWeights": {
+          "normal": "400",
+          "medium": "500",
+          "semibold": "600",
+          "bold": "700"
+        },
+        "lineHeights": {
+          "tight": "1.25",
+          "normal": "1.5",
+          "relaxed": "1.75"
+        }
+      },
+  
+      "spacing": {
+        "scale": "8px base unit",
+        "values": {
+          "xs": "0.5rem",
+          "sm": "0.75rem",
+          "md": "1rem", 
+          "lg": "1.5rem",
+          "xl": "2rem",
+          "2xl": "3rem",
+          "3xl": "4rem"
+        },
+        "component": {
+          "cardPadding": "1.5rem",
+          "sectionGap": "1.5rem",
+          "elementGap": "1rem"
+        }
+      },
+  
+      "borderRadius": {
+        "sm": "0.375rem",
+        "md": "0.5rem",
+        "lg": "0.75rem",
+        "xl": "1rem",
+        "full": "9999px",
+        "description": "Consistent rounded corners throughout interface"
+      },
+  
+      "shadows": {
+        "sm": "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
+        "md": "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+        "lg": "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+        "description": "Subtle shadows for depth and card separation"
+      },
+  
+      "layout": {
+        "structure": {
+          "type": "sidebar-main",
+          "sidebar": {
+            "width": "240px",
+            "background": "background.primary",
+            "position": "fixed-left"
+          },
+          "main": {
+            "marginLeft": "240px",
+            "padding": "spacing.xl",
+            "background": "background.secondary"
+          }
+        },
+        "grid": {
+          "type": "flexible-grid",
+          "gap": "1.5rem",
+          "responsive": true,
+          "breakpoints": {
+            "sm": "640px",
+            "md": "768px", 
+            "lg": "1024px",
+            "xl": "1280px"
+          }
+        }
+      },
+  
+      "components": {
+        "card": {
+          "style": {
+            "background": "background.primary",
+            "borderRadius": "borderRadius.lg",
+            "boxShadow": "shadows.sm",
+            "padding": "spacing.component.cardPadding",
+            "border": "none"
+          },
+          "variants": {
+            "elevated": {
+              "boxShadow": "shadows.md"
+            },
+            "interactive": {
+              "cursor": "pointer",
+              "hover": {
+                "boxShadow": "shadows.lg",
+                "transform": "translateY(-1px)"
+              }
+            }
+          }
+        },
+  
+        "sidebar": {
+          "style": {
+            "background": "background.primary",
+            "borderRight": "1px solid #E5E7EB",
+            "padding": "spacing.lg"
+          },
+          "navigation": {
+            "itemPadding": "spacing.md",
+            "itemBorderRadius": "borderRadius.md",
+            "activeBackground": "primary.main",
+            "activeColor": "text.inverse",
+            "hoverBackground": "background.tertiary"
+          }
+        },
+  
+        "button": {
+          "base": {
+            "borderRadius": "borderRadius.md",
+            "fontWeight": "fontWeights.medium",
+            "padding": "0.5rem 1rem",
+            "transition": "all 0.2s ease"
+          },
+          "variants": {
+            "primary": {
+              "background": "primary.main",
+              "color": "text.inverse",
+              "hover": {
+                "background": "primary.dark"
+              }
+            },
+            "secondary": {
+              "background": "background.tertiary",
+              "color": "text.primary",
+              "hover": {
+                "background": "#E5E7EB"
+              }
+            }
+          }
+        },
+  
+        "dataVisualization": {
+          "charts": {
+            "colorScheme": ["primary.main", "secondary.main", "accent.cyan", "accent.purple", "accent.pink"],
+            "barChart": {
+              "borderRadius": "4px",
+              "spacing": "0.5rem"
+            },
+            "lineChart": {
+              "strokeWidth": "2px",
+              "pointRadius": "4px"
+            }
+          },
+          "progressIndicators": {
+            "circular": {
+              "strokeWidth": "8px",
+              "trackColor": "background.tertiary"
+            },
+            "linear": {
+              "height": "8px",
+              "borderRadius": "borderRadius.full",
+              "trackColor": "background.tertiary"
+            }
+          }
+        },
+  
+        "table": {
+          "style": {
+            "headerBackground": "background.secondary",
+            "headerFontWeight": "fontWeights.semibold",
+            "headerColor": "text.secondary",
+            "rowPadding": "spacing.md",
+            "borderColor": "#E5E7EB"
+          },
+          "statusBadge": {
+            "padding": "0.25rem 0.75rem",
+            "borderRadius": "borderRadius.full",
+            "fontSize": "fontSizes.sm",
+            "fontWeight": "fontWeights.medium"
+          }
+        },
+  
+        "metrics": {
+          "numberDisplay": {
+            "fontSize": "fontSizes.3xl",
+            "fontWeight": "fontWeights.bold",
+            "color": "text.primary"
+          },
+          "label": {
+            "fontSize": "fontSizes.sm",
+            "fontWeight": "fontWeights.medium",
+            "color": "text.secondary"
+          }
+        }
+      },
+  
+      "patterns": {
+        "cardLayout": {
+          "description": "Cards are the primary content containers",
+          "usage": "Use for grouping related information and controls",
+          "spacing": "Maintain consistent gaps between cards",
+          "elevation": "Use subtle shadows for hierarchy"
+        },
+        
+        "dataPresentation": {
+          "description": "Mix of charts, progress indicators, and numerical displays",
+          "hierarchy": "Large numbers for key metrics, smaller supporting data",
+          "colorCoding": "Consistent color meanings across components"
+        },
+  
+        "navigation": {
+          "description": "Fixed sidebar with clear visual states",
+          "activeState": "Highlighted with primary color background",
+          "iconAlignment": "Icons paired with text labels"
+        },
+  
+        "statusCommunication": {
+          "description": "Clear visual feedback through colors and badges",
+          "consistency": "Same colors mean same things across interface",
+          "accessibility": "Color paired with text/icons for clarity"
+        }
+      },
+  
+      "principles": {
+        "cleanMinimalism": "Generous whitespace, subtle borders, focus on content",
+        "colorfulAccents": "Strategic use of vibrant colors for highlights and data",
+        "responsiveDesign": "Flexible grid system that adapts to screen sizes",
+        "dataClarity": "Clear hierarchy and visual encoding for information",
+        "interactiveElements": "Subtle hover states and smooth transitions",
+        "consistency": "Unified visual language across all components"
+      },
+  
+      "implementation": {
+        "framework": "Suitable for React, Vue, Angular, or vanilla implementations",
+        "cssFramework": "Compatible with Tailwind CSS utility classes",
+        "designTokens": "All values should be stored as design tokens/CSS variables",
+        "componentLibrary": "Build reusable components following this system",
+        "accessibility": "Ensure proper contrast ratios and keyboard navigation"
+      }
+    }
+  }
