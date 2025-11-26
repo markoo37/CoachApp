@@ -62,3 +62,11 @@ mobile/dist/
 mobile/build/
 mobile/ios/
 mobile/android/
+
+######################
+# local dev certs
+#####################
+
+*.pem
+*.key
+coachify-webapp/coachify-frontend/certs/

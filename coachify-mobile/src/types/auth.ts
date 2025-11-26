@@ -23,6 +23,7 @@ export interface CheckEmailRequest {
 
 export interface CheckEmailResponse {
   exists: boolean;
+  hasAccount: boolean;
   message?: string;
 }
 

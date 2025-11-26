@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { jwtDecode } from 'jwt-decode';
 
 interface AuthState {
   token: string | null;
@@ -14,23 +15,16 @@ interface AuthState {
   logout: () => void;
 }
 
-// JWT dekódoló függvény
-const decodeJWT = (token: string) => {
-  try {
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(
-      atob(base64)
-        .split('')
-        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join('')
-    );
-    return JSON.parse(jsonPayload);
-  } catch (error) {
-    console.error('Error decoding JWT:', error);
-    return null;
-  }
-};
+// JWT payload interface
+interface DecodedToken {
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  userId?: string;
+  userType?: string;
+  coachId?: string;
+  exp?: number;
+}
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -45,7 +39,7 @@ export const useAuthStore = create<AuthState>()(
       expiry: null,
 
       setToken: (token: string) => {
-        const decoded = decodeJWT(token);
+        const decoded = jwtDecode<DecodedToken>(token);
         if (decoded) {
           set({
             token,

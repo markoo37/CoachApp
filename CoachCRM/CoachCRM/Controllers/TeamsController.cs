@@ -30,29 +30,32 @@ namespace CoachCRM.Controllers
             if (coach == null)
                 return Unauthorized();
 
-            // Include TeamMemberships instead of Athletes, de kiszűrjük a "_Unassigned" csapatot
             var teams = await _context.Teams
                 .Where(t => t.CoachId == coach.Id && t.Name != "_Unassigned")
                 .Include(t => t.TeamMemberships)
-                    .ThenInclude(tm => tm.Athlete)
-                        .ThenInclude(a => a.User)
+                .ThenInclude(tm => tm.Athlete)
+                .ThenInclude(a => a.User)
                 .ToListAsync();
 
             var result = teams.Select(t => new
             {
                 t.Id,
                 t.Name,
-                Athletes = t.TeamMemberships.Select(tm => new
-                {
-                    tm.Athlete.Id,
-                    tm.Athlete.FirstName,
-                    tm.Athlete.LastName,
-                    tm.Athlete.BirthDate,
-                    tm.Athlete.Weight,
-                    tm.Athlete.Height,
-                    tm.Athlete.Email,
-                    HasUserAccount = tm.Athlete.User != null
-                })
+                Athletes = t.TeamMemberships
+                    // 👉 csak azok a sportolók, akiknek van User-ük (beregisztráltak)
+                    .Where(tm => tm.Athlete != null && tm.Athlete.User != null)
+                    .Select(tm => new
+                    {
+                        tm.Athlete.Id,
+                        tm.Athlete.FirstName,
+                        tm.Athlete.LastName,
+                        tm.Athlete.BirthDate,
+                        tm.Athlete.Weight,
+                        tm.Athlete.Height,
+                        tm.Athlete.Email,
+                        HasUserAccount = true
+                    })
+                    .ToList()
             });
 
             return Ok(result);

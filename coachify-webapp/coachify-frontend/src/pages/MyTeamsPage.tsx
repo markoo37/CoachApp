@@ -11,13 +11,6 @@ import { Label } from "../components/ui/label";
 import { Badge } from "../components/ui/badge";
 import { Popover, PopoverTrigger, PopoverContent } from "../components/ui/popover";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../components/ui/select";
-import {
   Command,
   CommandEmpty,
   CommandGroup,
@@ -25,23 +18,23 @@ import {
   CommandItem,
   CommandList,
 } from "../components/ui/command";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogFooter, 
-  DialogHeader, 
-  DialogTitle 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
 } from "../components/ui/dialog";
 import { useToast } from "../hooks/use-toast";
 import { Toaster } from "../components/ui/toaster";
 import { cn } from "@/lib/utils";
-import { 
-  Users, 
-  Plus, 
-  ChevronDown, 
-  Trash2, 
-  UserPlus, 
+import {
+  Users,
+  Plus,
+  ChevronDown,
+  Trash2,
+  UserPlus,
   UserMinus,
   Loader2,
   Calendar,
@@ -109,30 +102,15 @@ export default function MyTeamsPage() {
 
   const fetchTeams = async () => {
     try {
-      const [teamsRes, athletesRes] = await Promise.all([
-        api.get('/teams/my-teams'),
-        api.get('/athletes')
-      ]);
-      
-      const teams = teamsRes.data;
-      const allAthletes = athletesRes.data;
-      
-      // Create a map of athletes with their HasUserAccount status
-      const athletesMap = new Map(allAthletes.map((athlete: Athlete) => [athlete.Id, athlete]));
-      
-      // Merge the HasUserAccount field into team athletes
-      const teamsWithAthleteData = teams.map((team: any) => ({
+      const res = await api.get<Team[]>('/teams/my-teams');
+
+      // Csak azok a sportolók látszanak, akiknek van app accountjuk
+      const teamsWithFilteredAthletes: Team[] = res.data.map(team => ({
         ...team,
-        Athletes: team.Athletes.map((athlete: any) => {
-          const fullAthleteData = athletesMap.get(athlete.Id);
-          return {
-            ...athlete,
-            HasUserAccount: fullAthleteData ? fullAthleteData.HasUserAccount : false
-          };
-        })
+        Athletes: team.Athletes.filter(a => a.HasUserAccount),
       }));
-      
-      setTeams(teamsWithAthleteData);
+
+      setTeams(teamsWithFilteredAthletes);
     } catch {
       showError('Betöltési hiba', 'Nem sikerült betölteni a csapatokat. Próbáld újra!');
     }
@@ -141,7 +119,7 @@ export default function MyTeamsPage() {
   const fetchAvailableAthletes = async (teamId: number) => {
     setLoadingAvailableAthletes(true);
     try {
-      const res = await api.get(`/athletes/available-for-team/${teamId}`);
+      const res = await api.get<Athlete[]>(`/athletes/available-for-team/${teamId}`);
       setAvailableAthletes(res.data);
     } catch {
       showError('Hiba', 'Nem sikerült betölteni az elérhető sportolókat.');
@@ -167,17 +145,21 @@ export default function MyTeamsPage() {
       showError('Hiányzó kiválasztás', 'Kérlek válassz ki egy sportolót!');
       return;
     }
-    
+
     setIsSubmitting(true);
     try {
-      const response = await api.post(`/athletes/${selectedAthleteId}/assign-to-team/${teamId}`);
-      const result = response.data; // { AthleteId, TeamId, HasUserAccount }
-      
-      // Find the selected athlete from available athletes
+      const response = await api.post<{
+        AthleteId: number;
+        TeamId: number;
+        HasUserAccount: boolean;
+      }>(`/athletes/${selectedAthleteId}/assign-to-team/${teamId}`);
+
+      const result = response.data;
+
       const selectedAthlete = availableAthletes.find(a => a.Id === selectedAthleteId);
-      
-      if (selectedAthlete) {
-        // Add the athlete to the team with updated HasUserAccount status
+
+      // Csak akkor tesszük bele a listába, ha van app fiókja
+      if (selectedAthlete && result.HasUserAccount) {
         setTeams(prev =>
           prev.map(team =>
             team.Id === teamId
@@ -187,26 +169,34 @@ export default function MyTeamsPage() {
                     ...team.Athletes,
                     {
                       ...selectedAthlete,
-                      HasUserAccount: result.HasUserAccount
-                    }
-                  ]
+                      HasUserAccount: true,
+                    },
+                  ],
                 }
               : team
           )
         );
-        
-        // Remove the athlete from available athletes list
-        setAvailableAthletes(prev =>
-          prev.filter(athlete => athlete.Id !== selectedAthleteId)
+      } else if (selectedAthlete && !result.HasUserAccount) {
+        showNotification(
+          'A sportoló hozzá lett adva a csapathoz, de még nem regisztrált az appban, ezért itt nem jelenik meg.',
+          'error'
         );
       }
-      
+
+      // Eltávolítjuk az elérhető listából
+      setAvailableAthletes(prev =>
+        prev.filter(athlete => athlete.Id !== selectedAthleteId)
+      );
+
       setShowAddPlayerDropdown(null);
       setSelectedAthleteId(null);
       setComboboxOpen(false);
       showNotification('Sportoló hozzáadva a csapathoz', 'success');
     } catch (error: any) {
-      const message = error?.response?.data?.message || error?.response?.data || 'Nem sikerült a sportoló hozzáadása. Próbáld újra!';
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data ||
+        'Nem sikerült a sportoló hozzáadása. Próbáld újra!';
       showError('Hiba', message);
     } finally {
       setIsSubmitting(false);
@@ -224,8 +214,7 @@ export default function MyTeamsPage() {
       setDeletingAthleteId(athleteId);
       try {
         await api.post(`/athletes/${athleteId}/remove-from-team/${teamId}`);
-        
-        // Update teams state locally instead of refetching
+
         setTeams(prev =>
           prev.map(team =>
             team.Id === teamId
@@ -236,10 +225,13 @@ export default function MyTeamsPage() {
               : team
           )
         );
-        
+
         showNotification('Eltávolítva a csapatból', 'success');
       } catch (error: any) {
-        const message = error?.response?.data?.message || error?.response?.data || 'Nem sikerült eltávolítani. Próbáld újra!';
+        const message =
+          error?.response?.data?.message ||
+          error?.response?.data ||
+          'Nem sikerült eltávolítani. Próbáld újra!';
         showError('Hiba', message);
       } finally {
         setDeletingAthleteId(null);
@@ -358,7 +350,7 @@ export default function MyTeamsPage() {
             <div className="space-y-4">
               {teams.map(team => (
                 <Card key={team.Id} className="transition-all duration-200 hover:shadow-md">
-                  {/* Team Header - Vertically Centered */}
+                  {/* Team Header */}
                   <CardHeader className="py-6">
                     <div className="flex justify-between items-center min-h-[3rem]">
                       <button
@@ -434,164 +426,179 @@ export default function MyTeamsPage() {
                                 }}
                               >
                                 <Card className="mb-6 border-primary/20 bg-primary/5">
-                              <CardHeader className="pb-3">
-                                <h4 className="font-medium text-foreground">Sportoló hozzáadása a csapathoz</h4>
-                              </CardHeader>
-                              <CardContent className="space-y-4">
-                                {loadingAvailableAthletes ? (
-                                  <div className="flex items-center justify-center py-8">
-                                    <Loader2 className="w-6 h-6 animate-spin mr-2" />
-                                    <span className="text-muted-foreground">Sportolók betöltése...</span>
-                                  </div>
-                                ) : availableAthletes.length === 0 ? (
-                                  <div className="py-8 text-center space-y-2">
-                                    <p className="text-muted-foreground">Nincsenek elérhető sportolók.</p>
-                                    <p className="text-sm text-muted-foreground">
-                                      Adj hozzá új sportolókat a "Sportolók" oldalon, vagy mozgasd át sportolókat más csapatokból.
-                                    </p>
-                                  </div>
-                                ) : (
-                                  <>
-                                    <div className="space-y-2">
-                                      <Label htmlFor="athlete-select">
-                                        Válassz sportolót ({availableAthletes.length} elérhető)
-                                      </Label>
-                                      <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
-                                        <PopoverTrigger asChild>
-                                          <Button
-                                            variant="outline"
-                                            role="combobox"
-                                            aria-expanded={comboboxOpen}
-                                            className="w-full justify-between"
-                                          >
-                                            {selectedAthleteId
-                                              ? (() => {
-                                                  const selectedAthlete = availableAthletes.find(
-                                                    (athlete) => athlete.Id === selectedAthleteId
-                                                  );
-                                                  return selectedAthlete 
-                                                    ? `${selectedAthlete.FirstName} ${selectedAthlete.LastName}${selectedAthlete.Email ? ` (${selectedAthlete.Email})` : ''}`
-                                                    : "-- Válassz sportolót --";
-                                                })()
-                                              : "-- Válassz sportolót --"}
-                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                          </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-full p-0" align="start">
-                                          <Command>
-                                            <CommandInput placeholder="Keresés sportolók között..." className="h-9" />
-                                            <CommandList>
-                                              <CommandEmpty>Nincs találat.</CommandEmpty>
-                                              <CommandGroup>
-                                                {availableAthletes.map((athlete) => (
-                                                  <CommandItem
-                                                    key={athlete.Id}
-                                                    value={`${athlete.FirstName} ${athlete.LastName} ${athlete.Email || ''}`}
-                                                    onSelect={() => {
-                                                      setSelectedAthleteId(
-                                                        selectedAthleteId === athlete.Id ? null : athlete.Id
+                                  <CardHeader className="pb-3">
+                                    <h4 className="font-medium text-foreground">
+                                      Sportoló hozzáadása a csapathoz
+                                    </h4>
+                                  </CardHeader>
+                                  <CardContent className="space-y-4">
+                                    {loadingAvailableAthletes ? (
+                                      <div className="flex items-center justify-center py-8">
+                                        <Loader2 className="w-6 h-6 animate-spin mr-2" />
+                                        <span className="text-muted-foreground">
+                                          Sportolók betöltése...
+                                        </span>
+                                      </div>
+                                    ) : availableAthletes.length === 0 ? (
+                                      <div className="py-8 text-center space-y-2">
+                                        <p className="text-muted-foreground">
+                                          Nincsenek elérhető sportolók.
+                                        </p>
+                                        <p className="text-sm text-muted-foreground">
+                                          Adj hozzá új sportolókat a "Sportolók" oldalon, vagy mozgasd át sportolókat más csapatokból.
+                                        </p>
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <div className="space-y-2">
+                                          <Label htmlFor="athlete-select">
+                                            Válassz sportolót ({availableAthletes.length} elérhető)
+                                          </Label>
+                                          <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
+                                            <PopoverTrigger asChild>
+                                              <Button
+                                                variant="outline"
+                                                role="combobox"
+                                                aria-expanded={comboboxOpen}
+                                                className="w-full justify-between"
+                                              >
+                                                {selectedAthleteId
+                                                  ? (() => {
+                                                      const selectedAthlete = availableAthletes.find(
+                                                        (athlete) => athlete.Id === selectedAthleteId
                                                       );
-                                                      setComboboxOpen(false);
-                                                    }}
-                                                  >
-                                                    <div className="flex flex-col">
-                                                      <span className="font-medium">
-                                                        {athlete.FirstName} {athlete.LastName}
-                                                      </span>
-                                                      {athlete.Email && (
-                                                        <span className="text-sm text-muted-foreground">
-                                                          {athlete.Email}
-                                                        </span>
-                                                      )}
-                                                    </div>
-                                                    <Check
-                                                      className={cn(
-                                                        "ml-auto h-4 w-4",
-                                                        selectedAthleteId === athlete.Id ? "opacity-100" : "opacity-0"
-                                                      )}
-                                                    />
-                                                  </CommandItem>
-                                                ))}
-                                              </CommandGroup>
-                                            </CommandList>
-                                          </Command>
-                                        </PopoverContent>
-                                      </Popover>
-                                    </div>
+                                                      return selectedAthlete
+                                                        ? `${selectedAthlete.FirstName} ${selectedAthlete.LastName}${
+                                                            selectedAthlete.Email ? ` (${selectedAthlete.Email})` : ''
+                                                          }`
+                                                        : "-- Válassz sportolót --";
+                                                    })()
+                                                  : "-- Válassz sportolót --"}
+                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                              </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-full p-0" align="start">
+                                              <Command>
+                                                <CommandInput
+                                                  placeholder="Keresés sportolók között..."
+                                                  className="h-9"
+                                                />
+                                                <CommandList>
+                                                  <CommandEmpty>Nincs találat.</CommandEmpty>
+                                                  <CommandGroup>
+                                                    {availableAthletes.map((athlete) => (
+                                                      <CommandItem
+                                                        key={athlete.Id}
+                                                        value={`${athlete.FirstName} ${athlete.LastName} ${athlete.Email || ''}`}
+                                                        onSelect={() => {
+                                                          setSelectedAthleteId(
+                                                            selectedAthleteId === athlete.Id ? null : athlete.Id
+                                                          );
+                                                          setComboboxOpen(false);
+                                                        }}
+                                                      >
+                                                        <div className="flex flex-col">
+                                                          <span className="font-medium">
+                                                            {athlete.FirstName} {athlete.LastName}
+                                                          </span>
+                                                          {athlete.Email && (
+                                                            <span className="text-sm text-muted-foreground">
+                                                              {athlete.Email}
+                                                            </span>
+                                                          )}
+                                                        </div>
+                                                        <Check
+                                                          className={cn(
+                                                            "ml-auto h-4 w-4",
+                                                            selectedAthleteId === athlete.Id
+                                                              ? "opacity-100"
+                                                              : "opacity-0"
+                                                          )}
+                                                        />
+                                                      </CommandItem>
+                                                    ))}
+                                                  </CommandGroup>
+                                                </CommandList>
+                                              </Command>
+                                            </PopoverContent>
+                                          </Popover>
+                                        </div>
 
-                                    {selectedAthleteId && (
-                                      <Card className="border-muted">
-                                        <CardContent className="p-4">
-                                          {(() => {
-                                            const selectedAthlete = availableAthletes.find(a => a.Id === selectedAthleteId);
-                                            return selectedAthlete ? (
-                                              <div className="space-y-2">
-                                                <div className="flex items-start justify-between">
-                                                  <h5 className="font-medium text-foreground">
-                                                    {selectedAthlete.FirstName} {selectedAthlete.LastName}
-                                                  </h5>
-                                                  <Badge variant={selectedAthlete.HasUserAccount ? "default" : "secondary"}>
-                                                    {selectedAthlete.HasUserAccount ? (
-                                                      <>
-                                                        <UserCheck className="w-3 h-3 mr-1" />
-                                                        App felhasználó
-                                                      </>
-                                                    ) : (
-                                                      <>
-                                                        <UserX className="w-3 h-3 mr-1" />
-                                                        Nincs app
-                                                      </>
-                                                    )}
-                                                  </Badge>
-                                                </div>
-                                                <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
-                                                  {selectedAthlete.Email && (
-                                                    <div className="flex items-center gap-1">
-                                                      <Mail className="w-3 h-3" />
-                                                      {selectedAthlete.Email}
+                                        {selectedAthleteId && (
+                                          <Card className="border-muted">
+                                            <CardContent className="p-4">
+                                              {(() => {
+                                                const selectedAthlete = availableAthletes.find(
+                                                  a => a.Id === selectedAthleteId
+                                                );
+                                                return selectedAthlete ? (
+                                                  <div className="space-y-2">
+                                                    <div className="flex items-start justify-between">
+                                                      <h5 className="font-medium text-foreground">
+                                                        {selectedAthlete.FirstName} {selectedAthlete.LastName}
+                                                      </h5>
+                                                      <Badge variant={selectedAthlete.HasUserAccount ? "default" : "secondary"}>
+                                                        {selectedAthlete.HasUserAccount ? (
+                                                          <>
+                                                            <UserCheck className="w-3 h-3 mr-1" />
+                                                            App felhasználó
+                                                          </>
+                                                        ) : (
+                                                          <>
+                                                            <UserX className="w-3 h-3 mr-1" />
+                                                            Nincs app
+                                                          </>
+                                                        )}
+                                                      </Badge>
                                                     </div>
-                                                  )}
-                                                  {selectedAthlete.BirthDate && (
-                                                    <div className="flex items-center gap-1">
-                                                      <Calendar className="w-3 h-3" />
-                                                      {new Date(selectedAthlete.BirthDate).toLocaleDateString()}
+                                                    <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
+                                                      {selectedAthlete.Email && (
+                                                        <div className="flex items-center gap-1">
+                                                          <Mail className="w-3 h-3" />
+                                                          {selectedAthlete.Email}
+                                                        </div>
+                                                      )}
+                                                      {selectedAthlete.BirthDate && (
+                                                        <div className="flex items-center gap-1">
+                                                          <Calendar className="w-3 h-3" />
+                                                          {new Date(selectedAthlete.BirthDate).toLocaleDateString()}
+                                                        </div>
+                                                      )}
+                                                      {selectedAthlete.Weight && (
+                                                        <div className="flex items-center gap-1">
+                                                          <Weight className="w-3 h-3" />
+                                                          {selectedAthlete.Weight} kg
+                                                        </div>
+                                                      )}
+                                                      {selectedAthlete.Height && (
+                                                        <div className="flex items-center gap-1">
+                                                          <Ruler className="w-3 h-3" />
+                                                          {selectedAthlete.Height} cm
+                                                        </div>
+                                                      )}
                                                     </div>
-                                                  )}
-                                                  {selectedAthlete.Weight && (
-                                                    <div className="flex items-center gap-1">
-                                                      <Weight className="w-3 h-3" />
-                                                      {selectedAthlete.Weight} kg
-                                                    </div>
-                                                  )}
-                                                  {selectedAthlete.Height && (
-                                                    <div className="flex items-center gap-1">
-                                                      <Ruler className="w-3 h-3" />
-                                                      {selectedAthlete.Height} cm
-                                                    </div>
-                                                  )}
-                                                </div>
-                                              </div>
-                                            ) : null;
-                                          })()}
-                                        </CardContent>
-                                      </Card>
+                                                  </div>
+                                                ) : null;
+                                              })()}
+                                            </CardContent>
+                                          </Card>
+                                        )}
+                                      </>
                                     )}
-                                  </>
-                                )}
-                              </CardContent>
-                              <CardFooter className="flex justify-end gap-2">
-                                <Button variant="outline" onClick={cancelAddPlayer}>
-                                  Mégse
-                                </Button>
-                                <Button
-                                  onClick={() => handleAssignPlayer(team.Id)}
-                                  disabled={isSubmitting || !selectedAthleteId || availableAthletes.length === 0}
-                                >
-                                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                  Hozzáadás
-                                </Button>
-                              </CardFooter>
-                            </Card>
+                                  </CardContent>
+                                  <CardFooter className="flex justify-end gap-2">
+                                    <Button variant="outline" onClick={cancelAddPlayer}>
+                                      Mégse
+                                    </Button>
+                                    <Button
+                                      onClick={() => handleAssignPlayer(team.Id)}
+                                      disabled={isSubmitting || !selectedAthleteId || availableAthletes.length === 0}
+                                    >
+                                      {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                      Hozzáadás
+                                    </Button>
+                                  </CardFooter>
+                                </Card>
                               </motion.div>
                             )}
                           </AnimatePresence>
@@ -630,76 +637,76 @@ export default function MyTeamsPage() {
                                         delay: index * 0.05
                                       }}
                                     >
-                                <Card
-                                  key={athlete.Id}
-                                  className="transition-all duration-200 hover:shadow-sm hover:border-primary/30"
-                                >
-                                  <CardContent className="flex justify-between items-center p-4 min-h-[4rem]">
-                                    <div className="space-y-2 flex-1">
-                                      <div className="flex items-center gap-2">
-                                        <h5 className="font-medium text-foreground">
-                                          {athlete.FirstName} {athlete.LastName}
-                                        </h5>
-                                        {athlete.HasUserAccount && (
-                                          <Badge variant="default" className="text-xs">
-                                            App felhasználó
-                                          </Badge>
-                                        )}
-                                      </div>
-                                      <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
-                                        {athlete.BirthDate && (
-                                          <div className="flex items-center gap-1">
-                                            <Calendar className="w-3 h-3" />
-                                            {new Date(athlete.BirthDate).toLocaleDateString()}
+                                      <Card
+                                        key={athlete.Id}
+                                        className="transition-all duration-200 hover:shadow-sm hover:border-primary/30"
+                                      >
+                                        <CardContent className="flex justify-between items-center p-4 min-h-[4rem]">
+                                          <div className="space-y-2 flex-1">
+                                            <div className="flex items-center gap-2">
+                                              <h5 className="font-medium text-foreground">
+                                                {athlete.FirstName} {athlete.LastName}
+                                              </h5>
+                                              {athlete.HasUserAccount && (
+                                                <Badge variant="default" className="text-xs">
+                                                  App felhasználó
+                                                </Badge>
+                                              )}
+                                            </div>
+                                            <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
+                                              {athlete.BirthDate && (
+                                                <div className="flex items-center gap-1">
+                                                  <Calendar className="w-3 h-3" />
+                                                  {new Date(athlete.BirthDate).toLocaleDateString()}
+                                                </div>
+                                              )}
+                                              {athlete.Email && (
+                                                <div className="flex items-center gap-1">
+                                                  <Mail className="w-3 h-3" />
+                                                  {athlete.Email}
+                                                </div>
+                                              )}
+                                              {athlete.Weight && (
+                                                <div className="flex items-center gap-1">
+                                                  <Weight className="w-3 h-3" />
+                                                  {athlete.Weight} kg
+                                                </div>
+                                              )}
+                                              {athlete.Height && (
+                                                <div className="flex items-center gap-1">
+                                                  <Ruler className="w-3 h-3" />
+                                                  {athlete.Height} cm
+                                                </div>
+                                              )}
+                                            </div>
                                           </div>
-                                        )}
-                                        {athlete.Email && (
-                                          <div className="flex items-center gap-1">
-                                            <Mail className="w-3 h-3" />
-                                            {athlete.Email}
-                                          </div>
-                                        )}
-                                        {athlete.Weight && (
-                                          <div className="flex items-center gap-1">
-                                            <Weight className="w-3 h-3" />
-                                            {athlete.Weight} kg
-                                          </div>
-                                        )}
-                                        {athlete.Height && (
-                                          <div className="flex items-center gap-1">
-                                            <Ruler className="w-3 h-3" />
-                                            {athlete.Height} cm
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                    <Button
-                                      onClick={() =>
-                                        handleDeletePlayer(
-                                          athlete.Id,
-                                          team.Id,
-                                          `${athlete.FirstName} ${athlete.LastName}`
-                                        )
-                                      }
-                                      disabled={deletingAthleteId === athlete.Id}
-                                      variant="ghost"
-                                      size="sm"
-                                      className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0 flex-shrink-0 ml-4"
-                                    >
-                                      {deletingAthleteId === athlete.Id ? (
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                      ) : (
-                                        <UserMinus className="w-4 h-4" />
-                                      )}
-                                    </Button>
-                                  </CardContent>
-                                </Card>
-                                      </motion.div>
-                                    ))}
-                                  </AnimatePresence>
-                                </div>
-                              )}
-                            </motion.div>
+                                          <Button
+                                            onClick={() =>
+                                              handleDeletePlayer(
+                                                athlete.Id,
+                                                team.Id,
+                                                `${athlete.FirstName} ${athlete.LastName}`
+                                              )
+                                            }
+                                            disabled={deletingAthleteId === athlete.Id}
+                                            variant="ghost"
+                                            size="sm"
+                                            className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0 flex-shrink-0 ml-4"
+                                          >
+                                            {deletingAthleteId === athlete.Id ? (
+                                              <Loader2 className="w-4 h-4 animate-spin" />
+                                            ) : (
+                                              <UserMinus className="w-4 h-4" />
+                                            )}
+                                          </Button>
+                                        </CardContent>
+                                      </Card>
+                                    </motion.div>
+                                  ))}
+                                </AnimatePresence>
+                              </div>
+                            )}
+                          </motion.div>
                         </CardContent>
                       </motion.div>
                     )}

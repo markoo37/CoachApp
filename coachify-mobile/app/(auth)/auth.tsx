@@ -7,6 +7,8 @@ import {
   Alert,
   Animated,
   KeyboardAvoidingView,
+  Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,6 +16,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthAPI } from '../../src/services/api';
 import { useAuthStore } from '../../src/stores/authStore';
@@ -21,25 +24,25 @@ import { lightColors } from '../../src/styles/colors';
 import { RegisterPlayerRequest } from '../../src/types/auth';
 
 type AuthMode = 'login' | 'register';
-type RegisterStep = 'email' | 'profile';
 
 export default function UnifiedAuthScreen() {
   const [mode, setMode] = useState<AuthMode>('login');
-  const [registerStep, setRegisterStep] = useState<RegisterStep>('email');
-  
+
   // Login state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  
+
   // Registration state
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [birthDate, setBirthDate] = useState('');
+  const [birthDate, setBirthDate] = useState<Date | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [weight, setWeight] = useState('');
   const [height, setHeight] = useState('');
-  
+
   const [isLoading, setIsLoading] = useState(false);
   const [emailExists, setEmailExists] = useState(false);
 
@@ -50,6 +53,7 @@ export default function UnifiedAuthScreen() {
   const router = useRouter();
   const { setAuth, fetchAndUpdateProfile } = useAuthStore();
 
+  // Animáció induláskor
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
@@ -64,14 +68,14 @@ export default function UnifiedAuthScreen() {
       Animated.timing(toggleSlideAnim, { toValue: 0, duration: 150, useNativeDriver: true }),
     ]).start();
     setMode(newMode);
-    setRegisterStep('email');
     setEmail('');
     setPassword('');
     setRegEmail('');
     setRegPassword('');
+    setConfirmPassword('');
     setFirstName('');
     setLastName('');
-    setBirthDate('');
+    setBirthDate(null);
     setWeight('');
     setHeight('');
     setEmailExists(false);
@@ -95,52 +99,53 @@ export default function UnifiedAuthScreen() {
   };
 
   const validateRegistrationForm = () => {
-    if (registerStep === 'email') {
-      if (!regEmail.trim()) {
-        Alert.alert('Hiányzó email', 'Kérlek adj meg email címet');
-        return false;
-      }
-      if (!validateEmail(regEmail)) {
-        Alert.alert('Hibás email', 'Kérlek adj meg érvényes email címet');
-        return false;
-      }
-      return true;
-    } else {
-      // Profile step validation
-      if (!regPassword || regPassword.length < 6) {
-        Alert.alert('Gyenge jelszó', 'A jelszónak legalább 6 karakter hosszúnak kell lennie');
-        return false;
-      }
-      if (!firstName.trim() || !lastName.trim()) {
-        Alert.alert('Hiányzó név', 'Kérlek töltsd ki a keresztnevet és vezetéknevet');
-        return false;
-      }
-      return true;
+    if (!regEmail.trim()) {
+      Alert.alert('Hiányzó email', 'Kérlek adj meg email címet');
+      return false;
     }
+    if (!validateEmail(regEmail)) {
+      Alert.alert('Hibás email', 'Kérlek adj meg érvényes email címet');
+      return false;
+    }
+    if (!regPassword || regPassword.length < 6) {
+      Alert.alert('Gyenge jelszó', 'A jelszónak legalább 6 karakter hosszúnak kell lennie');
+      return false;
+    }
+    if (regPassword !== confirmPassword) {
+      Alert.alert('Jelszavak nem egyeznek', 'A két jelszó nem egyezik meg. Kérlek ellenőrizd!');
+      return false;
+    }
+    if (!firstName.trim() || !lastName.trim()) {
+      Alert.alert('Hiányzó név', 'Kérlek töltsd ki a keresztnevet és vezetéknevet');
+      return false;
+    }
+    return true;
   };
 
-  const handleCheckEmail = async () => {
-    if (!validateRegistrationForm()) return;
-    
-    setIsLoading(true);
+  // Email ellenőrzés a regisztráció során
+  const handleCheckEmail = async (): Promise<boolean> => {
     try {
       const response = await AuthAPI.checkEmail({ Email: regEmail.trim() });
       setEmailExists(response.exists);
-      
-      if (response.exists) {
-        setRegisterStep('profile');
+
+      if (!response.exists) {
         Alert.alert(
-          'Email megtalálva!', 
-          'Ez az email cím már szerepel a rendszerben. Kérlek töltsd ki a profil adataidat.',
-          [{ text: 'Rendben', onPress: () => {} }]
+          'Email nem található',
+          response.message ??
+            'Ez az email cím nem szerepel a rendszerben. Kérlek vedd fel a kapcsolatot az edződdel.'
         );
-      } else {
-        Alert.alert(
-          'Email nem található', 
-          'Ez az email cím nem szerepel a rendszerben. Kérlek vedd fel a kapcsolatot az edződdel.',
-          [{ text: 'Rendben', onPress: () => {} }]
-        );
+        return false;
       }
+
+      if (response.hasAccount) {
+        Alert.alert(
+          'Már regisztráltál',
+          'Ezzel az email címmel már létezik fiók. Kérlek jelentkezz be.'
+        );
+        return false;
+      }
+
+      return true;
     } catch (err: any) {
       let userMessage = 'Ismeretlen hiba történt';
       if (axios.isAxiosError(err) && err.response) {
@@ -155,22 +160,19 @@ export default function UnifiedAuthScreen() {
         userMessage = err.message;
       }
       Alert.alert('Email ellenőrzési hiba', userMessage);
-    } finally {
-      setIsLoading(false);
+      return false;
     }
   };
 
+  // Login
   const handleLogin = async () => {
     if (!validateLoginForm()) return;
-    
+
     setIsLoading(true);
     try {
       const resp = await AuthAPI.loginPlayer({ Email: email.trim(), Password: password });
       await setAuth(resp.token, resp.player);
-      
-      // Fetch full profile after successful login
       await fetchAndUpdateProfile();
-      
       Alert.alert('Sikeres bejelentkezés!', `Üdv ${resp.player.FirstName}!`);
       router.replace('/(tabs)');
     } catch (err: any) {
@@ -192,37 +194,49 @@ export default function UnifiedAuthScreen() {
     }
   };
 
+  // Regisztráció – először email ellenőrzés, majd regisztráció
   const handleRegister = async () => {
     if (!validateRegistrationForm()) return;
-    
+
     setIsLoading(true);
     try {
+      // Először ellenőrizzük az emailt
+      const emailValid = await handleCheckEmail();
+      if (!emailValid) {
+        setIsLoading(false);
+        return;
+      }
+
+      // Ha az email valid, folytatjuk a regisztrációt
       const registrationData: RegisterPlayerRequest = {
         Email: regEmail.trim().toLowerCase(),
         Password: regPassword,
         FirstName: firstName.trim(),
         LastName: lastName.trim(),
-        BirthDate: birthDate || undefined,
+        BirthDate: birthDate ? birthDate.toISOString().split('T')[0] : undefined,
         Weight: weight ? parseFloat(weight) : undefined,
         Height: height ? parseFloat(height) : undefined,
       };
 
       await AuthAPI.registerPlayer(registrationData);
-      
+
       Alert.alert('Sikeres regisztráció! 🎉', 'Most már bejelentkezhetsz.', [
-        { text: 'Rendben', onPress: () => {
-          setMode('login');
-          setEmail(regEmail);
-          setRegisterStep('email');
-          setRegEmail('');
-          setRegPassword('');
-          setFirstName('');
-          setLastName('');
-          setBirthDate('');
-          setWeight('');
-          setHeight('');
-          setEmailExists(false);
-        }},
+        {
+          text: 'Rendben',
+          onPress: () => {
+            setMode('login');
+            setEmail(regEmail);
+            setRegEmail('');
+            setRegPassword('');
+            setConfirmPassword('');
+            setFirstName('');
+            setLastName('');
+            setBirthDate(null);
+            setWeight('');
+            setHeight('');
+            setEmailExists(false);
+          },
+        },
       ]);
     } catch (err: any) {
       let userMessage = 'Ismeretlen hiba történt';
@@ -247,33 +261,18 @@ export default function UnifiedAuthScreen() {
     if (mode === 'login') {
       handleLogin();
     } else {
-      if (registerStep === 'email') {
-        handleCheckEmail();
-      } else {
-        handleRegister();
-      }
+      handleRegister();
     }
   };
 
-  const handleBackToEmail = () => {
-    setRegisterStep('email');
-    setRegPassword('');
-    setFirstName('');
-    setLastName('');
-    setBirthDate('');
-    setWeight('');
-    setHeight('');
-  };
-
   const isLogin = mode === 'login';
-  const isEmailStep = registerStep === 'email';
 
+  // JSX – amit küldtél, csak most már biztosan az új logikával dolgozik
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView behavior="padding" style={styles.flex}>
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-            
             {/* Header */}
             <View style={styles.headerContainer}>
               <View style={styles.iconContainer}>
@@ -282,42 +281,28 @@ export default function UnifiedAuthScreen() {
               </View>
               <Text style={styles.title}>Coachify</Text>
               <Text style={styles.subtitle}>
-                {isLogin ? 'Üdv újra!' : (isEmailStep ? 'Regisztráció' : 'Profil adatok')}
+                {isLogin ? 'Üdv újra!' : 'Regisztráció'}
               </Text>
             </View>
 
-            {/* Auth Mode Toggle - only show in email step or login */}
-            {(isLogin || isEmailStep) && (
-              <Animated.View style={[styles.toggleContainer, { transform: [{ translateY: toggleSlideAnim }] }]}>
-                <TouchableOpacity
-                  style={[styles.toggleButton, isLogin && styles.toggleButtonActive]}
-                  onPress={() => handleModeSwitch('login')}
-                >
-                  <Text style={[styles.toggleText, isLogin && styles.toggleTextActive]}>
-                    Bejelentkezés
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.toggleButton, !isLogin && styles.toggleButtonActive]}
-                  onPress={() => handleModeSwitch('register')}
-                >
-                  <Text style={[styles.toggleText, !isLogin && styles.toggleTextActive]}>
-                    Regisztráció
-                  </Text>
-                </TouchableOpacity>
-              </Animated.View>
-            )}
-
-            {/* Back button for profile step */}
-            {!isLogin && !isEmailStep && (
-              <TouchableOpacity style={styles.backButton} onPress={handleBackToEmail}>
-                <Text style={styles.backButtonText}>← Vissza az emailhez</Text>
+            {/* Auth Mode Toggle */}
+            <Animated.View style={[styles.toggleContainer, { transform: [{ translateY: toggleSlideAnim }] }]}>
+              <TouchableOpacity
+                style={[styles.toggleButton, isLogin && styles.toggleButtonActive]}
+                onPress={() => handleModeSwitch('login')}
+              >
+                <Text style={[styles.toggleText, isLogin && styles.toggleTextActive]}>Bejelentkezés</Text>
               </TouchableOpacity>
-            )}
+              <TouchableOpacity
+                style={[styles.toggleButton, !isLogin && styles.toggleButtonActive]}
+                onPress={() => handleModeSwitch('register')}
+              >
+                <Text style={[styles.toggleText, !isLogin && styles.toggleTextActive]}>Regisztráció</Text>
+              </TouchableOpacity>
+            </Animated.View>
 
             {/* Form */}
             <Animated.View style={[styles.formContainer, { transform: [{ translateY: toggleSlideAnim }] }]}>
-              
               {/* Login Form */}
               {isLogin && (
                 <>
@@ -350,29 +335,26 @@ export default function UnifiedAuthScreen() {
                 </>
               )}
 
-              {/* Registration Email Step */}
-              {!isLogin && isEmailStep && (
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Email cím</Text>
-                  <TextInput
-                    style={[styles.input, { borderColor: regEmail ? lightColors.ring : lightColors.border }]}
-                    placeholder="email@példa.com"
-                    placeholderTextColor={lightColors.mutedForeground}
-                    value={regEmail}
-                    onChangeText={setRegEmail}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    editable={!isLoading}
-                  />
-                  <Text style={styles.helperText}>
-                    Add meg az email címed, amit az edződdel megosztottál
-                  </Text>
-                </View>
-              )}
-
-              {/* Registration Profile Step */}
-              {!isLogin && !isEmailStep && (
+              {/* Registration Form - All fields at once */}
+              {!isLogin && (
                 <>
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>Játékos email címed</Text>
+                    <TextInput
+                      style={[styles.input, { borderColor: regEmail ? lightColors.ring : lightColors.border }]}
+                      placeholder="te@email.com"
+                      placeholderTextColor={lightColors.mutedForeground}
+                      value={regEmail}
+                      onChangeText={setRegEmail}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      editable={!isLoading}
+                    />
+                    <Text style={styles.helperText}>
+                      Ugyanaz az email, amit az edződdel megosztottál.
+                    </Text>
+                  </View>
+
                   <View style={styles.inputGroup}>
                     <Text style={styles.inputLabel}>Jelszó</Text>
                     <TextInput
@@ -387,6 +369,34 @@ export default function UnifiedAuthScreen() {
                     <Text style={styles.helperText}>
                       A jelszónak legalább 6 karakter hosszúnak kell lennie
                     </Text>
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>Jelszó megerősítése</Text>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        {
+                          borderColor:
+                            confirmPassword && regPassword === confirmPassword
+                              ? lightColors.ring
+                              : confirmPassword && regPassword !== confirmPassword
+                                ? '#ef4444'
+                                : lightColors.border
+                        }
+                      ]}
+                      placeholder="Erősítsd meg a jelszót"
+                      placeholderTextColor={lightColors.mutedForeground}
+                      value={confirmPassword}
+                      onChangeText={setConfirmPassword}
+                      secureTextEntry
+                      editable={!isLoading}
+                    />
+                    {confirmPassword && regPassword !== confirmPassword && (
+                      <Text style={[styles.helperText, { color: '#ef4444' }]}>
+                        A jelszavak nem egyeznek meg
+                      </Text>
+                    )}
                   </View>
 
                   <View style={styles.inputGroup}>
@@ -415,14 +425,93 @@ export default function UnifiedAuthScreen() {
 
                   <View style={styles.inputGroup}>
                     <Text style={styles.inputLabel}>Születési dátum (opcionális)</Text>
-                    <TextInput
-                      style={[styles.input, { borderColor: birthDate ? lightColors.ring : lightColors.border }]}
-                      placeholder="YYYY-MM-DD"
-                      placeholderTextColor={lightColors.mutedForeground}
-                      value={birthDate}
-                      onChangeText={setBirthDate}
-                      editable={!isLoading}
-                    />
+                    <TouchableOpacity
+                      onPress={() => setShowDatePicker(true)}
+                      disabled={isLoading}
+                      style={[
+                        styles.input,
+                        styles.datePickerButton,
+                        { borderColor: birthDate ? lightColors.ring : lightColors.border }
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.datePickerText,
+                          !birthDate && { color: lightColors.mutedForeground }
+                        ]}
+                      >
+                        {birthDate
+                          ? birthDate.toLocaleDateString('hu-HU', {
+                              year: 'numeric',
+                              month: '2-digit',
+                              day: '2-digit'
+                            })
+                          : 'Válassz dátumot'}
+                      </Text>
+                    </TouchableOpacity>
+                    {Platform.OS === 'ios' ? (
+                      <Modal
+                        visible={showDatePicker}
+                        transparent
+                        animationType="slide"
+                        onRequestClose={() => setShowDatePicker(false)}
+                      >
+                        <View style={styles.datePickerModalContainer}>
+                          <View style={styles.datePickerModalContent}>
+                            <View style={styles.datePickerHeader}>
+                              <TouchableOpacity
+                                onPress={() => setShowDatePicker(false)}
+                                style={styles.datePickerCancelButton}
+                              >
+                                <Text style={styles.datePickerCancelText}>Mégse</Text>
+                              </TouchableOpacity>
+                              <Text style={styles.datePickerTitle}>Születési dátum</Text>
+                              <TouchableOpacity
+                                onPress={() => {
+                                  setShowDatePicker(false);
+                                }}
+                                style={styles.datePickerDoneButton}
+                              >
+                                <Text style={styles.datePickerDoneText}>Kész</Text>
+                              </TouchableOpacity>
+                            </View>
+                            <View style={styles.datePickerWrapper}>
+                              <DateTimePicker
+                                value={birthDate || new Date()}
+                                mode="date"
+                                display="spinner"
+                                onChange={(event, selectedDate) => {
+                                  if (selectedDate) {
+                                    setBirthDate(selectedDate);
+                                  }
+                                }}
+                                maximumDate={new Date()}
+                                locale="hu-HU"
+                                textColor={lightColors.foreground}
+                                themeVariant="light"
+                                style={styles.datePickerIOS}
+                              />
+                            </View>
+                          </View>
+                        </View>
+                      </Modal>
+                    ) : (
+                      showDatePicker && (
+                        <DateTimePicker
+                          value={birthDate || new Date()}
+                          mode="date"
+                          display="default"
+                          onChange={(event, selectedDate) => {
+                            setShowDatePicker(false);
+                            if (event.type === 'set' && selectedDate) {
+                              setBirthDate(selectedDate);
+                            }
+                          }}
+                          maximumDate={new Date()}
+                          locale="hu-HU"
+                        />
+                      )
+                    )}
                   </View>
 
                   <View style={styles.inputGroup}>
@@ -462,16 +551,13 @@ export default function UnifiedAuthScreen() {
                   <ActivityIndicator color={lightColors.primaryForeground} size="small" />
                 ) : (
                   <Text style={styles.buttonText}>
-                    {isLogin ? 'Bejelentkezés' : (isEmailStep ? 'Email ellenőrzése' : 'Fiók létrehozása')}
+                    {isLogin ? 'Bejelentkezés' : 'Fiók létrehozása'}
                   </Text>
                 )}
               </TouchableOpacity>
             </Animated.View>
 
-            {/* Status */}
-            <Text style={styles.statusText}>
-              {__DEV__ ? 'Development' : 'Production'}
-            </Text>
+            <Text style={styles.statusText}>{__DEV__ ? 'Development' : 'Production'}</Text>
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -479,41 +565,33 @@ export default function UnifiedAuthScreen() {
   );
 }
 
+// Styles változatlanul mehet ugyanúgy, mint nálad
 const styles = StyleSheet.create({
-  flex: { 
-    flex: 1 
-  },
-
+  flex: { flex: 1 },
   container: {
     flex: 1,
     backgroundColor: lightColors.background,
   },
-
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
     padding: 24,
   },
-
   content: {
     maxWidth: 400,
     alignSelf: 'center',
     width: '100%',
   },
-
-  // Header Styles
   headerContainer: {
     alignItems: 'center',
     marginBottom: 32,
   },
-
   iconContainer: {
     position: 'relative',
     width: 64,
     height: 64,
     marginBottom: 24,
   },
-  
   icon: {
     position: 'absolute',
     width: 64,
@@ -521,7 +599,6 @@ const styles = StyleSheet.create({
     backgroundColor: lightColors.primary,
     borderRadius: 8,
   },
-  
   iconInner: {
     position: 'absolute',
     width: 16,
@@ -531,7 +608,6 @@ const styles = StyleSheet.create({
     top: 24,
     left: 24,
   },
-
   title: {
     fontSize: 32,
     fontWeight: '700',
@@ -539,26 +615,11 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     letterSpacing: -0.5,
   },
-  
   subtitle: {
     fontSize: 16,
     color: lightColors.mutedForeground,
     fontWeight: '400',
   },
-
-  // Back Button
-  backButton: {
-    alignSelf: 'flex-start',
-    marginBottom: 16,
-  },
-
-  backButtonText: {
-    fontSize: 14,
-    color: lightColors.primary,
-    fontWeight: '500',
-  },
-
-  // Toggle Styles
   toggleContainer: {
     flexDirection: 'row',
     backgroundColor: lightColors.muted,
@@ -566,14 +627,12 @@ const styles = StyleSheet.create({
     padding: 4,
     marginBottom: 32,
   },
-  
   toggleButton: {
     flex: 1,
     paddingVertical: 12,
     alignItems: 'center',
     borderRadius: 6,
   },
-  
   toggleButtonActive: {
     backgroundColor: lightColors.background,
     shadowColor: lightColors.foreground,
@@ -582,33 +641,26 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
-  
   toggleText: {
     fontSize: 14,
     fontWeight: '500',
     color: lightColors.mutedForeground,
   },
-  
   toggleTextActive: {
     color: lightColors.foreground,
     fontWeight: '600',
   },
-
-  // Form Styles
   formContainer: {
     gap: 20,
   },
-
-  inputGroup: { 
+  inputGroup: {
     gap: 8,
   },
-  
   inputLabel: {
     fontSize: 14,
     fontWeight: '500',
     color: lightColors.foreground,
   },
-  
   input: {
     height: 44,
     borderWidth: 1,
@@ -619,13 +671,69 @@ const styles = StyleSheet.create({
     backgroundColor: lightColors.background,
     color: lightColors.foreground,
   },
-  
+  datePickerButton: {
+    justifyContent: 'center',
+  },
+  datePickerText: {
+    fontSize: 16,
+    color: lightColors.foreground,
+  },
+  datePickerModalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  datePickerModalContent: {
+    backgroundColor: lightColors.background,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 20,
+  },
+  datePickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: lightColors.border,
+  },
+  datePickerCancelButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  datePickerCancelText: {
+    fontSize: 16,
+    color: lightColors.mutedForeground,
+    fontWeight: '500',
+  },
+  datePickerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: lightColors.foreground,
+  },
+  datePickerDoneButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  datePickerDoneText: {
+    fontSize: 16,
+    color: lightColors.primary,
+    fontWeight: '600',
+  },
+  datePickerWrapper: {
+    backgroundColor: lightColors.background,
+    paddingVertical: 10,
+  },
+  datePickerIOS: {
+    width: '100%',
+    height: 200,
+  },
   helperText: {
     fontSize: 12,
     color: lightColors.mutedForeground,
     marginTop: 4,
   },
-
   submitButton: {
     height: 44,
     backgroundColor: lightColors.primary,
@@ -634,17 +742,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 8,
   },
-  
-  buttonLoading: { 
-    opacity: 0.7 
-  },
-  
+  buttonLoading: { opacity: 0.7 },
   buttonText: {
     color: lightColors.primaryForeground,
     fontSize: 16,
     fontWeight: '600',
   },
-
   statusText: {
     textAlign: 'center',
     color: lightColors.mutedForeground,

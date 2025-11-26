@@ -32,8 +32,6 @@ public class AthletesController : ControllerBase
         var coach = await _context.Coaches.FirstOrDefaultAsync(c => c.UserId == userId);
         if (coach == null) return Unauthorized();
 
-        var userEmails = await _context.Users.Select(u => u.Email).ToListAsync();
-
         var athleteIds = await _context.CoachAthletes
             .Where(ca => ca.CoachId == coach.Id)
             .Select(ca => ca.AthleteId)
@@ -41,6 +39,73 @@ public class AthletesController : ControllerBase
 
         var athletes = await _context.Athletes
             .Where(a => athleteIds.Contains(a.Id))
+            .ToListAsync();
+
+        // minden Player user emailjét előre lekérjük
+        var playerEmails = await _context.Users
+            .Where(u => u.UserType == "Player")
+            .Select(u => u.Email)
+            .ToListAsync();
+
+        var dtoList = athletes.Select(a => new AthleteDto
+        {
+            Id = a.Id,
+            FirstName = a.FirstName,
+            LastName = a.LastName,
+            BirthDate = a.BirthDate,
+            Weight = a.Weight,
+            Height = a.Height,
+            Email = a.Email,
+            HasUserAccount = !string.IsNullOrEmpty(a.Email) &&
+                             playerEmails.Contains(a.Email),
+            TeamIds = a.TeamMemberships.Select(tm => tm.TeamId).ToList()
+        }).ToList();
+
+        return Ok(dtoList);
+    }
+
+    
+    // GET: api/athletes/available-for-team/{teamId}
+    [HttpGet("available-for-team/{teamId}")]
+    public async Task<ActionResult<IEnumerable<AthleteDto>>> GetAvailableForTeam(int teamId)
+    {
+        int userId = User.GetUserId();
+
+        // 1) Lekérjük az aktuális edzőt
+        var coach = await _context.Coaches
+            .FirstOrDefaultAsync(c => c.UserId == userId);
+
+        if (coach == null)
+            return Unauthorized("Coach not found.");
+
+        // 2) Ellenőrizzük, hogy a csapat tényleg ehhez az edzőhöz tartozik-e
+        var team = await _context.Teams
+            .FirstOrDefaultAsync(t => t.Id == teamId && t.CoachId == coach.Id);
+
+        if (team == null)
+            return Forbid("This team does not belong to the current coach.");
+
+        // 3) Az edzőhöz tartozó sportolók ID-i (CoachAthletes kapcsolat)
+        var coachAthleteIds = await _context.CoachAthletes
+            .Where(ca => ca.CoachId == coach.Id)
+            .Select(ca => ca.AthleteId)
+            .ToListAsync();
+
+        // 4) Akik már benne vannak ebben a csapatban
+        var teamAthleteIds = await _context.TeamMemberships
+            .Where(tm => tm.TeamId == teamId)
+            .Select(tm => tm.AthleteId)
+            .ToListAsync();
+
+        // 5) Azok az Athletes rekordok:
+        //    - akik az edzőhöz tartoznak
+        //    - még nincsenek ebben a csapatban
+        //    - már regisztráltak az appba (UserId != null)
+        var athletes = await _context.Athletes
+            .Where(a =>
+                coachAthleteIds.Contains(a.Id) &&
+                !teamAthleteIds.Contains(a.Id) &&
+                a.UserId != null)
             .Include(a => a.TeamMemberships)
             .ToListAsync();
 
@@ -53,12 +118,74 @@ public class AthletesController : ControllerBase
             Weight = a.Weight,
             Height = a.Height,
             Email = a.Email,
-            HasUserAccount = !string.IsNullOrEmpty(a.Email) && userEmails.Contains(a.Email),
+            HasUserAccount = true, // mert a.UserId != null-re szűrtünk
             TeamIds = a.TeamMemberships.Select(tm => tm.TeamId).ToList()
         }).ToList();
 
         return Ok(dtoList);
     }
+    
+    // POST: api/athletes/{athleteId}/assign-to-team/{teamId}
+    [HttpPost("{athleteId}/assign-to-team/{teamId}")]
+    public async Task<IActionResult> AssignAthleteToTeam(int athleteId, int teamId)
+    {
+        int userId = User.GetUserId();
+
+        // 1) Aktuális coach
+        var coach = await _context.Coaches
+            .FirstOrDefaultAsync(c => c.UserId == userId);
+
+        if (coach == null)
+            return Unauthorized("Coach not found.");
+
+        // 2) Csapat ellenőrzése (ehhez a coach-hoz tartozzon)
+        var team = await _context.Teams
+            .FirstOrDefaultAsync(t => t.Id == teamId && t.CoachId == coach.Id);
+
+        if (team == null)
+            return Forbid("This team does not belong to the current coach.");
+
+        // 3) Sportoló tényleg az edzőé-e (CoachAthletes tábla)
+        var coachAthlete = await _context.CoachAthletes
+            .FirstOrDefaultAsync(ca => ca.CoachId == coach.Id && ca.AthleteId == athleteId);
+
+        if (coachAthlete == null)
+            return Forbid("This athlete is not linked to the current coach.");
+
+        // 4) Már tagja a csapatnak?
+        bool alreadyMember = await _context.TeamMemberships
+            .AnyAsync(tm => tm.TeamId == teamId && tm.AthleteId == athleteId);
+
+        if (alreadyMember)
+            return BadRequest(new { message = "A sportoló már tagja ennek a csapatnak." });
+
+        // 5) TeamMembership létrehozása
+        var membership = new TeamMembership
+        {
+            AthleteId = athleteId,
+            TeamId = teamId,
+            JoinedAt = DateTime.UtcNow,
+            Role = "Player" // vagy amit szeretnél
+        };
+
+        _context.TeamMemberships.Add(membership);
+        await _context.SaveChangesAsync();
+
+        // 6) HasUserAccount kiszámolása (Athlete.UserId alapján)
+        var athlete = await _context.Athletes
+            .FirstOrDefaultAsync(a => a.Id == athleteId);
+
+        bool hasUserAccount = athlete?.UserId != null;
+
+        // A frontend ezt az objektumot várja vissza
+        return Ok(new
+        {
+            AthleteId = athleteId,
+            TeamId = teamId,
+            HasUserAccount = hasUserAccount
+        });
+    }
+
 
     // POST: api/athletes/add-by-email
     [HttpPost("add-by-email")]
@@ -68,15 +195,41 @@ public class AthletesController : ControllerBase
         var coach = await _context.Coaches.FirstOrDefaultAsync(c => c.UserId == userId);
         if (coach == null) return Unauthorized();
 
-        var athlete = await _context.Athletes.FirstOrDefaultAsync(a => a.Email == dto.Email);
+        dto.Email = dto.Email.Trim().ToLowerInvariant();
 
+        // 1) megpróbálunk Athletet találni ezzel az emaillel
+        var athlete = await _context.Athletes
+            .FirstOrDefaultAsync(a => a.Email.ToLower() == dto.Email);
+
+        // 2) ha nincs Athlete, megnézzük, regisztrált-e már Player userként
         if (athlete == null)
         {
-            athlete = new Athlete { Email = dto.Email };
+            var playerUser = await _context.Users
+                .FirstOrDefaultAsync(u => u.Email.ToLower() == dto.Email && u.UserType == "Player");
+
+            athlete = new Athlete
+            {
+                Email = dto.Email,
+                UserId = playerUser?.Id
+            };
+
             _context.Athletes.Add(athlete);
             await _context.SaveChangesAsync();
         }
+        else if (athlete.UserId == null)
+        {
+            // ha eddig nem volt összekötve userrel, de időközben regisztrált
+            var playerUser = await _context.Users
+                .FirstOrDefaultAsync(u => u.Email.ToLower() == dto.Email && u.UserType == "Player");
 
+            if (playerUser != null)
+            {
+                athlete.UserId = playerUser.Id;
+                await _context.SaveChangesAsync();
+            }
+        }
+
+        // 3) edző–sportoló kapcsolat
         var alreadyConnected = await _context.CoachAthletes
             .AnyAsync(ca => ca.CoachId == coach.Id && ca.AthleteId == athlete.Id);
 
@@ -88,29 +241,92 @@ public class AthletesController : ControllerBase
             CoachId = coach.Id,
             AthleteId = athlete.Id
         });
+
         await _context.SaveChangesAsync();
 
-        return Ok(athlete.Id);
+        // opcionálisan visszaadhatsz egy DTO-t is, de a mostani frontendnek elég az Id
+        return Ok(new
+        {
+            AthleteId = athlete.Id,
+            HasUserAccount = athlete.UserId != null
+        });
     }
+
+    
+    // POST: api/athletes/{athleteId}/remove-from-team/{teamId}
+    [HttpPost("{athleteId}/remove-from-team/{teamId}")]
+    public async Task<IActionResult> RemoveAthleteFromTeam(int athleteId, int teamId)
+    {
+        int userId = User.GetUserId();
+
+        var coach = await _context.Coaches
+            .FirstOrDefaultAsync(c => c.UserId == userId);
+
+        if (coach == null)
+            return Unauthorized("Coach not found.");
+
+        // Csapat ellenőrzése
+        var team = await _context.Teams
+            .FirstOrDefaultAsync(t => t.Id == teamId && t.CoachId == coach.Id);
+
+        if (team == null)
+            return Forbid("This team does not belong to the current coach.");
+
+        var membership = await _context.TeamMemberships
+            .FirstOrDefaultAsync(tm => tm.TeamId == teamId && tm.AthleteId == athleteId);
+
+        if (membership == null)
+            return NotFound(new { message = "A sportoló nem tagja ennek a csapatnak." });
+
+        _context.TeamMemberships.Remove(membership);
+        await _context.SaveChangesAsync();
+
+        return Ok();
+    }
+
 
     // DELETE: api/athletes/remove-from-coach/{athleteId}
     [HttpDelete("remove-from-coach/{athleteId}")]
     public async Task<IActionResult> RemoveAthleteFromCoach(int athleteId)
     {
         int userId = User.GetUserId();
-        var coach = await _context.Coaches.FirstOrDefaultAsync(c => c.UserId == userId);
-        if (coach == null) return Unauthorized();
 
+        // 1) Aktuális coach lekérése
+        var coach = await _context.Coaches
+            .FirstOrDefaultAsync(c => c.UserId == userId);
+
+        if (coach == null)
+            return Unauthorized("Coach not found.");
+
+        // 2) Coach–Athlete kapcsolat (CoachAthletes tábla)
         var relation = await _context.CoachAthletes
             .FirstOrDefaultAsync(ca => ca.CoachId == coach.Id && ca.AthleteId == athleteId);
 
         if (relation == null)
-            return NotFound("Ez a kapcsolat nem létezik!");
+            return NotFound("Ez a játékos nincs ehhez az edzőhöz kapcsolva.");
 
+        // 3) Az edző összes csapata
+        var coachTeamIds = await _context.Teams
+            .Where(t => t.CoachId == coach.Id)
+            .Select(t => t.Id)
+            .ToListAsync();
+
+        // 4) Az adott játékos tagságai ezekben a csapatokban
+        var memberships = await _context.TeamMemberships
+            .Where(tm => tm.AthleteId == athleteId && coachTeamIds.Contains(tm.TeamId))
+            .ToListAsync();
+
+        // 5) Csapattagságok törlése (DE NEM az Athlete/User!)
+        _context.TeamMemberships.RemoveRange(memberships);
+
+        // 6) Coach–Athlete kapcsolat törlése
         _context.CoachAthletes.Remove(relation);
+
         await _context.SaveChangesAsync();
-        return Ok();
+
+        return Ok(new { message = "A sportoló eltávolítva az edzőtől és az edző csapataiból." });
     }
+
 
     // GET: api/athletes/{id}
     [HttpGet("{id}")]
@@ -156,7 +372,7 @@ public class AthletesController : ControllerBase
                 .ThenInclude(a => a.TeamMemberships)
                     .ThenInclude(tm => tm.Team)
                         .ThenInclude(t => t.Coach)
-            .FirstOrDefaultAsync(pu => pu.AthleteId == userId);
+            .FirstOrDefaultAsync(pu => pu.Id == userId);
 
         if (playerUser?.Athlete == null)
             return NotFound("Player profile not found.");
@@ -283,7 +499,7 @@ public class AthletesController : ControllerBase
         var playerUser = await _context.PlayerUsers
             .Include(pu => pu.Athlete)
                 .ThenInclude(a => a.TeamMemberships)
-            .FirstOrDefaultAsync(pu => pu.AthleteId == userId);
+            .FirstOrDefaultAsync(pu => pu.Id == userId);
 
         if (playerUser?.Athlete == null)
             return NotFound("Player not found.");
@@ -315,7 +531,7 @@ public class AthletesController : ControllerBase
         var playerUser = await _context.PlayerUsers
             .Include(pu => pu.Athlete)
                 .ThenInclude(a => a.TeamMemberships)
-            .FirstOrDefaultAsync(pu => pu.AthleteId == userId);
+            .FirstOrDefaultAsync(pu => pu.Id == userId);
 
         if (playerUser?.Athlete == null)
             return NotFound("Player not found.");
@@ -345,7 +561,7 @@ public class AthletesController : ControllerBase
 
         var playerUser = await _context.PlayerUsers
             .Include(pu => pu.Athlete)
-            .FirstOrDefaultAsync(pu => pu.AthleteId == userId);
+            .FirstOrDefaultAsync(pu => pu.Id == userId);
 
         if (playerUser?.Athlete == null)
             return NotFound("Player not found.");
@@ -378,7 +594,7 @@ public class AthletesController : ControllerBase
 
         var playerUser = await _context.PlayerUsers
             .Include(pu => pu.Athlete)
-            .FirstOrDefaultAsync(pu => pu.AthleteId == userId);
+            .FirstOrDefaultAsync(pu => pu.Id == userId);
 
         if (playerUser?.Athlete == null)
             return NotFound("Player not found.");

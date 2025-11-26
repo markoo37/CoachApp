@@ -3,7 +3,7 @@ import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import { CheckEmailRequest, CheckEmailResponse, LoginRequest, PlayerLoginResponse, RegisterPlayerRequest } from '../types/auth';
 
-const API_BASE_URL = 'https://031f-2001-4c4c-2255-8a00-9052-e6da-49f7-2fbd.ngrok-free.app/api';
+const API_BASE_URL = 'https://3e28297ca28a.ngrok-free.app/api';
 
 // API client setup
 const api = axios.create({
@@ -106,7 +106,7 @@ export const AuthAPI = {
    */
   async checkEmail(data: CheckEmailRequest): Promise<CheckEmailResponse> {
     try {
-      const response = await api.post('/auth/check-email', data);
+      const response = await api.post<CheckEmailResponse>('/auth/check-email', data);
       return response.data;
     } catch (error) {
       console.error('Check Email API Error:', error);
@@ -119,7 +119,7 @@ export const AuthAPI = {
    */
   async loginPlayer(credentials: LoginRequest): Promise<PlayerLoginResponse> {
     try {
-      const response = await api.post('/auth/login', credentials);
+      const response = await api.post('/auth/login-player', credentials);
       return response.data;
     } catch (error) {
       console.error('Login API Error:', error);
@@ -131,13 +131,8 @@ export const AuthAPI = {
    * Player registration - updated to include all profile fields
    */
   async registerPlayer(data: RegisterPlayerRequest): Promise<{ message: string }> {
-    try {
-      const response = await api.post('/auth/register-player', data);
-      return response.data;
-    } catch (error) {
-      console.error('Register API Error:', error);
-      throw error;
-    }
+    const response = await api.post('/auth/register-player', data);
+    return response.data;
   },
 
   /**

@@ -15,6 +15,7 @@ import {
 import ThemeToggle from './ThemeToggle';
 import gruadLogoLight from '../assets/gruad_notext.png';
 import gruadLogoDark from '../assets/gruad_notext.png';
+import api from '../api/api';
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -56,11 +57,18 @@ export default function Navbar() {
     };
   }, []);
 
-  const handleLogout = () => {
-    logout();
-    navigate('/');
-    setIsProfileOpen(false);
-  };
+  const handleLogout = async () => {
+    try {
+      await api.post('/auth/logout'); // ⬅ backend: refreshToken revoke + cookie törlés
+    } catch (error) {
+      console.error('Logout error:', error);
+      // ha a backend valamiért elszáll, akkor is kiléptetjük frontenden
+    } finally {
+      logout();               // ⬅ frontend: Zustand store ürítése
+      navigate('/');          // vagy '/login', ahova szeretnéd
+      setIsProfileOpen(false);
+    }
+  };  
 
   const navigation = [
     { name: 'Főoldal',      href: '/dashboard',      icon: HomeIcon,       current: location.pathname === '/dashboard' },

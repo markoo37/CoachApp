@@ -62,57 +62,120 @@ namespace CoachCRM.Controllers
 
             return Ok("Coach account created successfully");
         }
+        
+        [AllowAnonymous]
+        [HttpPost("check-email")]
+        public async Task<IActionResult> CheckEmail(CheckEmailDto dto)
+        {
+            var playerEmail = dto.Email.Trim().ToLower();
+
+            var athlete = await _context.Athletes
+                .FirstOrDefaultAsync(a => a.Email.ToLower() == playerEmail);
+
+            if (athlete == null)
+            {
+                // Nincs ilyen email-lel sportoló felvéve az edzők listáján
+                return Ok(new
+                {
+                    exists = false,
+                    hasAccount = false,
+                    message = "Ezzel az email címmel nincs felvett sportoló."
+                });
+            }
+
+            var hasAccount = athlete.UserId != null;
+
+            return Ok(new
+            {
+                exists = true,
+                hasAccount
+            });
+        }
 
         // PLAYER REGISTRATION
         [AllowAnonymous]
         [HttpPost("register-player")]
         public async Task<IActionResult> RegisterPlayer(RegisterPlayerDto dto)
         {
-            // 1) Meglévő Athlete keresése az email alapján
+            var playerEmail = dto.Email.Trim().ToLower();
+
+            // 1) Ne legyen már használatban az email (CoachUser vagy PlayerUser által)
+            var emailInUse = await _context.Users
+                .AnyAsync(u => u.Email.ToLower() == playerEmail);
+
+            if (emailInUse)
+            {
+                return BadRequest(new { message = "Ez az email már foglalt." });
+            }
+
+            // 2) Megnézzük, hogy van-e már Athlete ezzel az emaillel (edző felvette korábban)
             var athlete = await _context.Athletes
-                .FirstOrDefaultAsync(a => a.Email == dto.Email.Trim().ToLower());
+                .FirstOrDefaultAsync(a => a.Email.ToLower() == playerEmail);
 
-            if (athlete == null)
-                return BadRequest( new { message = "Nincs ilyen email-lel regisztrált sportoló. Kérjük, vedd fel a kapcsolatot az edződdel."});
+            if (athlete != null && athlete.UserId != null)
+            {
+                // Már hozzá van kötve egy userhez → már regisztrált
+                return BadRequest(new { message = "Ez a sportoló már regisztrált." });
+            }
 
-            // 2) Ellenőrizzük, hogy még nincs-e user account
-            if (athlete.UserId != null)
-                return BadRequest(new { message = "Ez a sportoló már regisztrált."} );
-
-            if (await _context.Users.AnyAsync(u => u.Email == dto.Email.Trim().ToLower()))
-                return BadRequest(new { message = "Ez az email már foglalt."});
-
-            // 3) Jelszó hash-elése
+            // 3) Jelszó hash
             CreatePasswordHash(dto.Password, out var hash, out var salt);
 
-            // 4) PlayerUser létrehozása
+            // 4) Ha nincs Athlete, létrehozunk egyet a játékos adataival
+            if (athlete == null)
+            {
+                athlete = new Athlete
+                {
+                    Email     = playerEmail,
+                    FirstName = dto.FirstName,
+                    LastName  = dto.LastName,
+                    BirthDate = dto.BirthDate,
+                    Weight    = dto.Weight,
+                    Height    = dto.Height
+                };
+
+                _context.Athletes.Add(athlete);
+                await _context.SaveChangesAsync(); // kell az Id-hez
+            }
+            else
+            {
+                // Ha az edző már felvette, most frissítjük a profi lt a játékos által megadott adatokkal
+                athlete.FirstName = dto.FirstName;
+                athlete.LastName  = dto.LastName;
+                athlete.BirthDate = dto.BirthDate;
+                athlete.Weight    = dto.Weight;
+                athlete.Height    = dto.Height;
+            }
+
+            // 5) PlayerUser létrehozása, összekötve az Athlete-tel
             var user = new PlayerUser
             {
-                Email        = dto.Email.Trim().ToLower(),
+                Email        = playerEmail,
                 PasswordHash = hash,
                 PasswordSalt = salt,
                 AthleteId    = athlete.Id
             };
+
             _context.PlayerUsers.Add(user);
             await _context.SaveChangesAsync();
 
-            // 5) Athlete frissítése
+            // 6) Athlete → UserId beállítása
             athlete.UserId = user.Id;
             await _context.SaveChangesAsync();
 
-            return Ok("Sportoló fiók sikeresen létrejött!");
+            return Ok(new { message = "Sportoló fiók sikeresen létrejött!" });
         }
-
-
 
         // COACH LOGIN
         [AllowAnonymous]
         [HttpPost("login")]
         public async Task<IActionResult> Login(LoginDto dto)
         {
+            var email = dto.Email.Trim().ToLower();
+
             var user = await _context.CoachUsers
                 .Include(u => u.Coach)
-                .FirstOrDefaultAsync(u => u.Email == dto.Email);
+                .FirstOrDefaultAsync(u => u.Email.ToLower() == email);
 
             if (user == null || !VerifyPasswordHash(dto.Password, user.PasswordHash, user.PasswordSalt))
                 return Unauthorized("Invalid credentials");
@@ -138,17 +201,20 @@ namespace CoachCRM.Controllers
             return Ok(new { token });
         }
 
+
         // PLAYER LOGIN
         [AllowAnonymous]
         [HttpPost("login-player")]
         public async Task<IActionResult> LoginPlayer(LoginDto dto)
         {
+            var email = dto.Email.Trim().ToLower();
+
             var user = await _context.PlayerUsers
                 .Include(u => u.Athlete)
-                    .ThenInclude(a => a.TeamMemberships)
-                        .ThenInclude(tm => tm.Team)
-                        .ThenInclude(t => t.Coach)
-                .FirstOrDefaultAsync(u => u.Email == dto.Email);
+                .ThenInclude(a => a.TeamMemberships)
+                .ThenInclude(tm => tm.Team)
+                .ThenInclude(t => t.Coach)
+                .FirstOrDefaultAsync(u => u.Email.ToLower() == email);
 
             if (user == null || !VerifyPasswordHash(dto.Password, user.PasswordHash, user.PasswordSalt))
                 return Unauthorized("Invalid credentials");
@@ -172,6 +238,7 @@ namespace CoachCRM.Controllers
             });
 
             var firstMembership = user.Athlete.TeamMemberships.FirstOrDefault();
+
             var profile = new PlayerLoginResponseDto
             {
                 Id        = user.Athlete.Id,
@@ -227,8 +294,14 @@ namespace CoachCRM.Controllers
                 rt.Revoked = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
             }
+            
 
-            Response.Cookies.Delete("refreshToken");
+            Response.Cookies.Delete("refreshToken", new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.None
+            });
             return Ok("Logged out");
         }
 
@@ -314,7 +387,7 @@ namespace CoachCRM.Controllers
             };
         }
 
-                [Authorize]
+        [Authorize]
         [HttpPost("change-password")]
         public async Task<IActionResult> ChangePassword(ChangePasswordDto dto)
         {

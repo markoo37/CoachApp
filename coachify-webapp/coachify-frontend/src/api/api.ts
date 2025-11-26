@@ -55,28 +55,38 @@ api.interceptors.response.use(
     }
 
     if (error.response?.status === 401 && !originalRequest._retry) {
+      const url = originalRequest.url || '';
+    
+      // ⛔️ KIVÉTEL: ha a login endpointról jön a 401,
+      // akkor ne próbáljunk refresh-elni, csak dobjuk tovább a hibát
+      if (url.includes('/auth/login')) {
+        return Promise.reject(error);
+      }
+    
       if (isRefreshing) {
         // Ha már folyamatban van refresh, várjuk meg
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
-        }).then(token => {
-          originalRequest.headers['Authorization'] = `Bearer ${token}`;
-          return api(originalRequest);
-        }).catch(err => {
-          return Promise.reject(err);
-        });
+        })
+          .then((token) => {
+            originalRequest.headers['Authorization'] = `Bearer ${token}`;
+            return api(originalRequest);
+          })
+          .catch((err) => {
+            return Promise.reject(err);
+          });
       }
-
+    
       originalRequest._retry = true;
       isRefreshing = true;
-
+    
       try {
         const res = await api.post('/auth/refresh');
         const newToken = res.data.token;
-        
+    
         authStore.setToken(newToken);
         processQueue(null, newToken);
-        
+    
         originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
         return api(originalRequest);
       } catch (refreshError) {
@@ -88,6 +98,7 @@ api.interceptors.response.use(
         isRefreshing = false;
       }
     }
+    
     
     return Promise.reject(error);
   }
