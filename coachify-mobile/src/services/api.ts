@@ -2,8 +2,10 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import { CheckEmailRequest, CheckEmailResponse, LoginRequest, PlayerLoginResponse, RegisterPlayerRequest } from '../types/auth';
+import { useAuthStore } from "../stores/authStore";
 
-const API_BASE_URL = 'https://3e28297ca28a.ngrok-free.app/api';
+
+const API_BASE_URL = 'https://cc897fd5a858.ngrok-free.app/api';
 
 // API client setup
 const api = axios.create({
@@ -43,22 +45,55 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    console.error('❌ API Response Error:', error.response?.data || error.message);
-    
-    // User-friendly error messages
-    if (error.response?.status === 401) {
-      throw new Error('Hibás email vagy jelszó');
-    } else if (error.response?.status === 403) {
-      throw new Error('Nincs jogosultságod ehhez a művelethez');
-    } else if (error.response?.status >= 500) {
-      throw new Error('Szerver hiba. Próbáld újra később.');
-    } else if (error.code === 'NETWORK_ERROR' || error.message.includes('Network Error')) {
-      throw new Error('Hálózati hiba. Ellenőrizd az internet kapcsolatot.');
+    console.error("❌ API Response Error:", error.response?.data || error.message);
+
+    const status = error.response?.status;
+    const url = error.config?.url || "";
+
+    // 1️⃣ 401 - külön login / minden más
+    if (status === 401) {
+      const isAuthRequest =
+        url.includes("/auth/login") ||
+        url.includes("/auth/check-email") ||
+        url.includes("/auth/register");
+
+      if (isAuthRequest) {
+        // tényleges belépési hiba
+        throw new Error("Hibás email vagy jelszó");
+      }
+
+      // minden más endpointnál: valószínűleg lejárt a token → logout
+      const authStore = useAuthStore.getState();
+      authStore.logout?.(); // ha van ilyen metódusod a store-ban
+
+      throw new Error("A munkamenet lejárt. Kérlek jelentkezz be újra.");
     }
-    
-    throw new Error(error.response?.data?.message || 'Ismeretlen hiba történt');
+
+    // 2️⃣ 403 - jogosultság hiba
+    if (status === 403) {
+      throw new Error("Nincs jogosultságod ehhez a művelethez");
+    }
+
+    // 3️⃣ 5xx - szerver hiba
+    if (status && status >= 500) {
+      throw new Error("Szerver hiba. Próbáld újra később.");
+    }
+
+    // 4️⃣ hálózati hibák
+    if (error.code === "NETWORK_ERROR" || error.message.includes("Network Error")) {
+      throw new Error("Hálózati hiba. Ellenőrizd az internet kapcsolatot.");
+    }
+
+    // 5️⃣ fallback - ha a backend adott 'message' mezőt, azt használjuk
+    const backendMessage = error.response?.data?.message;
+    if (backendMessage) {
+      throw new Error(backendMessage);
+    }
+
+    throw new Error("Ismeretlen hiba történt");
   }
 );
+
 
 // Types for player endpoints
 export interface TeamInfo {

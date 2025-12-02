@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Plus, Users, UserCheck, UserX, Mail, Trash2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 interface Athlete {
   Id: number;
@@ -161,7 +162,19 @@ export default function AthletesPage() {
                     </Badge>
                   </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="flex items-center justify-between">
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="sm"
+                    className="mt-3"
+                  >
+                    <Link to={`/athletes/${a.Id}`}>
+                      <Users className="w-4 h-4 mr-2" />
+                      Részletek
+                    </Link>
+                  </Button>
+
                   <Button
                     variant="destructive"
                     size="sm"
@@ -176,6 +189,7 @@ export default function AthletesPage() {
                     Törlés
                   </Button>
                 </CardContent>
+
               </Card>
             ))}
           </div>

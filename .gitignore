@@ -43,25 +43,25 @@ out/
 
 
 ############################
-# FRONTEND (React)
+# FRONTEND (React - coachify-webapp)
 ############################
-frontend/node_modules/
-frontend/build/
-frontend/.next/
-frontend/dist/
-frontend/.turbo/
+coachify-webapp/coachify-frontend/node_modules/
+coachify-webapp/coachify-frontend/build/
+coachify-webapp/coachify-frontend/dist/
+coachify-webapp/coachify-frontend/.next/
+coachify-webapp/coachify-frontend/.turbo/
 
+############################
+# MOBILE (React Native / Expo - coachify-mobile)
+############################
+coachify-mobile/node_modules/
+coachify-mobile/.expo/
+coachify-mobile/.expo-shared/
+coachify-mobile/dist/
+coachify-mobile/build/
+coachify-mobile/ios/
+coachify-mobile/android/
 
-############################
-# MOBILE (React Native / Expo)
-############################
-mobile/node_modules/
-mobile/.expo/
-mobile/.expo-shared/
-mobile/dist/
-mobile/build/
-mobile/ios/
-mobile/android/
 
 ######################
 # local dev certs

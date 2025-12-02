@@ -182,5 +182,20 @@ namespace CoachCRM.Extensions
                     .Distinct()
                     .ToList()
             };
+
+        public static WellnessCheckDto ToDto(this WellnessCheck w) =>
+            new WellnessCheckDto
+            {
+                Id = w.Id,
+                Date = w.Date,
+                Fatigue = w.Fatigue,
+                SleepQuality = w.SleepQuality,
+                MuscleSoreness = w.MuscleSoreness,
+                Stress = w.Stress,
+                Mood = w.Mood,
+                Comment = w.Comment,
+                AthleteId = w.AthleteId,
+                AthleteName = $"{w.Athlete.FirstName} {w.Athlete.LastName}".Trim()
+            };
     }
 }

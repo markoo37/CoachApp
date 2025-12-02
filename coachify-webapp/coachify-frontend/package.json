@@ -22,6 +22,7 @@
     "@radix-ui/react-select": "^2.2.5",
     "@radix-ui/react-slot": "^1.2.3",
     "@radix-ui/react-toast": "^1.2.14",
+    "@react-three/fiber": "^8.18.0",
     "@theme-toggles/react": "^4.1.0",
     "@types/gsap": "^3.0.0",
     "axios": "^1.10.0",
@@ -40,6 +41,7 @@
     "react-router-dom": "^7.6.2",
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",
+    "three": "^0.181.2",
     "zustand": "^5.0.5"
   },
   "devDependencies": {
@@ -49,6 +51,7 @@
     "@tailwindcss/postcss": "^4.1.10",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
+    "@types/three": "^0.181.0",
     "@vitejs/plugin-react": "^4.4.1",
     "autoprefixer": "^10.4.21",
     "eslint": "^9.25.0",
