@@ -11,6 +11,8 @@ import { useAuthStore } from './store/authStore';
 import Dashboard from './pages/Dashboard';
 import TrainingPlansPage from './pages/TrainingPlansPage';
 import AthleteDetailsPage from './pages/AthleteDetailsPage';
+import Silk from './components/Silk';
+import { Toaster } from './components/ui/toaster';
 
 function AppContent() {
   const expiry = useAuthStore(state => state.expiry);
@@ -34,11 +36,27 @@ function AppContent() {
     }
   }, [expiry, logout]);
 
-  // Hide Navbar on landing page
-  const showNavbar = location.pathname !== '/';
+  // Hide Navbar on landing, login, and register pages
+  const showNavbar = (location.pathname !== '/' && location.pathname !== '/login' && location.pathname !== '/register');
+  
+  // Show Silk background on landing, login, and register pages
+  const showSilkBackground = (location.pathname === '/' || location.pathname === '/login' || location.pathname === '/register') && !token;
 
   return (
     <>
+      {/* Persistent Silk Background for auth pages */}
+      {showSilkBackground && (
+        <div className="fixed inset-0 z-0" style={{ width: '100vw', height: '100vh', pointerEvents: 'none' }}>
+          <Silk 
+            speed={2}
+            scale={0.8}
+            color="#662E37"
+            noiseIntensity={0.5}
+            rotation={5.6}
+          />
+        </div>
+      )}
+      
       {showNavbar && <Navbar />}
       <Routes>
         <Route path="/" element={!token ? <LandingPage /> : <Navigate to="/dashboard" />} />
@@ -51,6 +69,7 @@ function AppContent() {
         <Route path="/training-plans" element={token ? <TrainingPlansPage /> : <Navigate to="/login" />} />
         <Route path="/profile" element={token ? <ProfilePage /> : <Navigate to="/login" />} /> {/* ÚJ route */}
       </Routes>
+      <Toaster />
     </>
   );
 }

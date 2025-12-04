@@ -5,7 +5,7 @@ import { CheckEmailRequest, CheckEmailResponse, LoginRequest, PlayerLoginRespons
 import { useAuthStore } from "../stores/authStore";
 
 
-const API_BASE_URL = 'https://cc897fd5a858.ngrok-free.app/api';
+const API_BASE_URL = 'https://palankeeningly-unforeshortened-delicia.ngrok-free.dev/api';
 
 // API client setup
 const api = axios.create({

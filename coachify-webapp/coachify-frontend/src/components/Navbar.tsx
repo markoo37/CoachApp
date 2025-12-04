@@ -97,7 +97,7 @@ export default function Navbar() {
           <div className="flex justify-between h-16">
             <Link to="/" className="flex-shrink-0 flex items-center">
               <LogoComponent />
-              <span className="ml-3 text-xl font-bold text-foreground tracking-tight">Gruad</span>
+              <span className="ml-3 text-xl font-bold text-foreground tracking-tight">togedr</span>
             </Link>
 
             <div className="flex items-center space-x-3">
@@ -177,7 +177,7 @@ export default function Navbar() {
         <div className="flex-shrink-0 h-16 px-4 flex items-center justify-between border-b border-border">
           <Link to="/" className="flex items-center">
             <LogoComponent />
-            <span className="ml-3 text-xl font-bold text-foreground tracking-tight">Gruad</span>
+            <span className="ml-3 text-xl font-bold text-foreground tracking-tight">togedr</span>
           </Link>
           <ThemeToggle />
         </div>
