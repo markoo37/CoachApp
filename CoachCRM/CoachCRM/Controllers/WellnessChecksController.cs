@@ -2,6 +2,7 @@
 using CoachCRM.Dtos;
 using CoachCRM.Extensions;
 using CoachCRM.Models;
+using CoachCRM.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -172,5 +173,50 @@ public class WellnessChecksController : ControllerBase
             .ToList();
 
         return Ok(dtoList);
+    }
+    
+    [HttpGet("athletes/{athleteId}/wellness-index")]
+    public async Task<ActionResult<List<WellnessIndexPointDto>>> GetWellnessIndexForAthlete(
+        int athleteId,
+        [FromQuery] DateOnly? from,
+        [FromQuery] DateOnly? to)
+    {
+        int userId = User.GetUserId();
+
+        var coach = await _context.Coaches
+            .FirstOrDefaultAsync(c => c.UserId == userId);
+
+        if (coach == null)
+            return Unauthorized("Coach not found.");
+
+        // csak olyan sportolót láthasson, aki az edzőhöz tartozik
+        bool isLinked = await _context.CoachAthletes
+            .AnyAsync(ca => ca.CoachId == coach.Id && ca.AthleteId == athleteId);
+
+        if (!isLinked)
+            return Forbid("This athlete is not linked to the current coach.");
+
+        var query = _context.WellnessChecks
+            .Where(w => w.AthleteId == athleteId);
+
+        if (from.HasValue)
+            query = query.Where(w => w.Date >= from.Value);
+
+        if (to.HasValue)
+            query = query.Where(w => w.Date <= to.Value);
+
+        var checks = await query
+            .OrderBy(w => w.Date)
+            .ToListAsync();
+
+        var result = checks
+            .Select(w => new WellnessIndexPointDto
+            {
+                Date = w.Date.ToString("yyyy-MM-dd"),
+                Index = WellnessIndexCalculator.CalculateIndex(w)
+            })
+            .ToList();
+
+        return Ok(result);
     }
 }
