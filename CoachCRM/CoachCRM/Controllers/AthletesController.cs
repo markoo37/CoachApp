@@ -28,42 +28,39 @@ public class AthletesController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<AthleteDto>>> GetAthletes()
     {
-        int userId = User.GetUserId();
-        var coach = await _context.Coaches.FirstOrDefaultAsync(c => c.UserId == userId);
-        if (coach == null) return Unauthorized();
+        var userId = User.GetUserId();
 
-        var athleteIds = await _context.CoachAthletes
-            .Where(ca => ca.CoachId == coach.Id)
-            .Select(ca => ca.AthleteId)
+        // 1) CoachId lekérése indexelt oszlopon
+        var coachId = await _context.Coaches
+            .Where(c => c.UserId == userId)
+            .Select(c => c.Id)
+            .SingleOrDefaultAsync();
+
+        if (coachId == 0)
+            return Unauthorized();
+
+        // 2) Közvetlenül DTO-t projektálunk – kevesebb anyag, kevesebb LINQ a memóriában
+        var dtoList = await _context.CoachAthletes
+            .Where(ca => ca.CoachId == coachId)
+            .Select(ca => new AthleteDto
+            {
+                Id = ca.Athlete.Id,
+                FirstName = ca.Athlete.FirstName,
+                LastName = ca.Athlete.LastName,
+                BirthDate = ca.Athlete.BirthDate,
+                Weight = ca.Athlete.Weight,
+                Height = ca.Athlete.Height,
+                Email = ca.Athlete.Email,
+                HasUserAccount = ca.Athlete.UserId != null,
+                TeamIds = ca.Athlete.TeamMemberships
+                    .Select(tm => tm.TeamId)
+                    .ToList()
+            })
+            .AsNoTracking()
             .ToListAsync();
-
-        var athletes = await _context.Athletes
-            .Where(a => athleteIds.Contains(a.Id))
-            .ToListAsync();
-
-        // minden Player user emailjét előre lekérjük
-        var playerEmails = await _context.Users
-            .Where(u => u.UserType == "Player")
-            .Select(u => u.Email)
-            .ToListAsync();
-
-        var dtoList = athletes.Select(a => new AthleteDto
-        {
-            Id = a.Id,
-            FirstName = a.FirstName,
-            LastName = a.LastName,
-            BirthDate = a.BirthDate,
-            Weight = a.Weight,
-            Height = a.Height,
-            Email = a.Email,
-            HasUserAccount = !string.IsNullOrEmpty(a.Email) &&
-                             playerEmails.Contains(a.Email),
-            TeamIds = a.TeamMemberships.Select(tm => tm.TeamId).ToList()
-        }).ToList();
 
         return Ok(dtoList);
     }
-
     
     // GET: api/athletes/available-for-team/{teamId}
     [HttpGet("available-for-team/{teamId}")]

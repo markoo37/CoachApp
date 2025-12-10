@@ -123,5 +123,23 @@ public class AppDbContext : DbContext
                 .HasMaxLength(1000);
         });
 
+        modelBuilder.Entity<Coach>().HasIndex(c => c.UserId);
+        modelBuilder.Entity<Athlete>().HasIndex(a => a.UserId);
+        modelBuilder.Entity<CoachAthlete>(entity =>
+        {
+            entity.HasIndex(ca => ca.CoachId);
+            entity.HasIndex(ca => ca.AthleteId);
+            
+            entity.HasIndex(ca => new { ca.CoachId, ca.AthleteId })
+                .IsUnique();
+        });
+        modelBuilder.Entity<TeamMembership>(entity =>
+        {
+            entity.HasIndex(tm => tm.TeamId);
+            entity.HasIndex(tm => tm.AthleteId);
+
+            entity.HasIndex(tm => new { tm.TeamId, tm.AthleteId })
+                .IsUnique();
+        });
     }
 }
