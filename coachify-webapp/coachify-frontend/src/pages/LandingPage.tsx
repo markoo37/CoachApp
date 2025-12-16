@@ -43,7 +43,7 @@ export default function LandingPage() {
                             textShadow: '0 2px 20px rgba(0, 0, 0, 0.5), 0 4px 40px rgba(0, 0, 0, 0.3)'
                         }}
                     >
-                        togedr
+                        DEM
                     </h1>
                     
                     <p 
@@ -53,7 +53,7 @@ export default function LandingPage() {
                             textShadow: '0 1px 10px rgba(0, 0, 0, 0.4), 0 2px 20px rgba(0, 0, 0, 0.2)'
                         }}
                     >
-                        Emeld a sportolóidat bajnoki szintre a legmodernebb sportmenedzsment eszközeinkkel.
+                        Digitális Edzői Menedzsmentrendszer
                     </p>
 
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">

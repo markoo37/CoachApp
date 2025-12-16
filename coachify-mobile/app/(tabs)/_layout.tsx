@@ -1,6 +1,6 @@
 // app/(tabs)/_layout.tsx
 import { Redirect, Tabs } from 'expo-router';
-import { Text } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import { useAuthStore } from '../../src/stores/authStore';
 
 export default function TabLayout() {
@@ -36,14 +36,17 @@ export default function TabLayout() {
         options={{
           title: 'Főoldal',
           tabBarIcon: ({ color, size }) => (
-            <Text style={{ color, fontSize: size }}>🏠</Text>
+            <MaterialIcons name="home" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="Wellness"
+        name="wellness"
         options={{
           title: "Wellness",
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="self-improvement" size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
@@ -51,7 +54,7 @@ export default function TabLayout() {
         options={{
           title: 'Csapatok',
           tabBarIcon: ({ color, size }) => (
-            <Text style={{ color, fontSize: size }}>🏆</Text>
+            <MaterialIcons name="groups" size={size} color={color} />
           ),
         }}
       />
@@ -60,7 +63,7 @@ export default function TabLayout() {
         options={{
           title: 'Edzések',
           tabBarIcon: ({ color, size }) => (
-            <Text style={{ color, fontSize: size }}>📋</Text>
+            <MaterialIcons name="fitness-center" size={size} color={color} />
           ),
         }}
       />

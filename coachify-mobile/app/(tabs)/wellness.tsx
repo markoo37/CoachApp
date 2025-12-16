@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,7 +11,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Slider from "@react-native-community/slider";
+import { Header, LogoutButton, SliderRow } from "@/src/components";
 import { getTodayWellnessCheck, createTodayWellnessCheck } from "@/src/services/wellness";
 import { lightColors } from "@/src/styles/colors";
 
@@ -83,16 +84,10 @@ export default function WellnessScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <View style={styles.headerContainer}>
-          <View style={styles.iconContainer}>
-            <View style={styles.iconSquare} />
-            <View style={[styles.iconSquare, styles.iconSquareSmall]} />
-          </View>
-          <Text style={styles.title}>Napi wellness check</Text>
-          <Text style={styles.subtitle}>
-            Töltsd ki a mai wellness értékelésedet
-          </Text>
-        </View>
+        <Header 
+          title="Napi wellness check" 
+          subtitle="Töltsd ki a mai wellness értékelésedet"
+        />
 
         {/* Status Message */}
         {submitted && (
@@ -146,42 +141,6 @@ export default function WellnessScreen() {
   );
 }
 
-function SliderRow({
-  label,
-  value,
-  onChange,
-  disabled,
-}: {
-  label: string;
-  value: number;
-  onChange: (n: number) => void;
-  disabled: boolean;
-}) {
-  return (
-    <View style={styles.sliderRow}>
-      <View style={styles.sliderHeader}>
-        <Text style={styles.sliderLabel}>{label}</Text>
-        <Text style={styles.sliderValue}>{value}/10</Text>
-      </View>
-      <Slider
-        value={value}
-        minimumValue={1}
-        maximumValue={10}
-        step={1}
-        onValueChange={onChange}
-        disabled={disabled}
-        minimumTrackTintColor={lightColors.primary}
-        maximumTrackTintColor={lightColors.border}
-        thumbTintColor={lightColors.primary}
-        style={styles.slider}
-      />
-      <View style={styles.sliderRange}>
-        <Text style={styles.sliderRangeText}>1</Text>
-        <Text style={styles.sliderRangeText}>10</Text>
-      </View>
-    </View>
-  );
-}
 
 const styles = StyleSheet.create({
   container: {
@@ -204,50 +163,18 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingBottom: 32,
   },
-  headerContainer: {
-    alignItems: "center",
-    marginBottom: 32,
-  },
-  iconContainer: {
-    position: "relative",
-    width: 64,
-    height: 64,
-    marginBottom: 24,
-  },
-  iconSquare: {
-    position: "absolute",
-    width: 64,
-    height: 64,
-    borderRadius: 12,
-    backgroundColor: lightColors.primary,
-  },
-  iconSquareSmall: {
-    width: 16,
-    height: 16,
-    borderRadius: 4,
-    backgroundColor: lightColors.primaryForeground,
-    top: 24,
-    left: 24,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: lightColors.foreground,
-    letterSpacing: -0.5,
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: lightColors.mutedForeground,
-    fontWeight: "400",
-  },
   statusCard: {
     padding: 16,
-    backgroundColor: lightColors.muted,
-    borderRadius: 8,
+    backgroundColor: Platform.OS === 'ios' ? 'rgba(142, 142, 147, 0.08)' : lightColors.muted,
+    borderRadius: 12,
     marginBottom: 32,
-    borderWidth: 1,
+    borderWidth: 0.5,
     borderColor: lightColors.border,
+    shadowColor: Platform.OS === 'ios' ? '#000' : 'transparent',
+    shadowOffset: { width: 0, height: 0.5 },
+    shadowOpacity: Platform.OS === 'ios' ? 0.05 : 0,
+    shadowRadius: 1,
+    elevation: 0,
   },
   statusText: {
     fontSize: 14,
@@ -266,67 +193,52 @@ const styles = StyleSheet.create({
   },
   metricsCard: {
     padding: 24,
-    borderWidth: 1,
+    borderWidth: 0.5,
     borderColor: lightColors.border,
-    borderRadius: 8,
-    backgroundColor: lightColors.card,
+    borderRadius: 12,
+    backgroundColor: Platform.OS === 'ios' ? 'rgba(142, 142, 147, 0.08)' : lightColors.card,
     gap: 24,
-  },
-  sliderRow: {
-    gap: 8,
-  },
-  sliderHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  sliderLabel: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: lightColors.foreground,
-  },
-  sliderValue: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: lightColors.primary,
-  },
-  slider: {
-    width: "100%",
-    height: 40,
-  },
-  sliderRange: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  sliderRangeText: {
-    fontSize: 12,
-    color: lightColors.mutedForeground,
+    shadowColor: Platform.OS === 'ios' ? '#000' : 'transparent',
+    shadowOffset: { width: 0, height: 0.5 },
+    shadowOpacity: Platform.OS === 'ios' ? 0.05 : 0,
+    shadowRadius: 1,
+    elevation: 0,
   },
   commentCard: {
     padding: 16,
-    borderWidth: 1,
+    borderWidth: 0.5,
     borderColor: lightColors.border,
-    borderRadius: 8,
-    backgroundColor: lightColors.card,
+    borderRadius: 12,
+    backgroundColor: Platform.OS === 'ios' ? 'rgba(142, 142, 147, 0.08)' : lightColors.card,
+    shadowColor: Platform.OS === 'ios' ? '#000' : 'transparent',
+    shadowOffset: { width: 0, height: 0.5 },
+    shadowOpacity: Platform.OS === 'ios' ? 0.05 : 0,
+    shadowRadius: 1,
+    elevation: 0,
   },
   commentInput: {
     minHeight: 100,
-    fontSize: 16,
+    fontSize: 17,
     color: lightColors.foreground,
     textAlignVertical: "top",
   },
   submitButton: {
-    height: 56,
+    height: 50,
     backgroundColor: lightColors.primary,
-    borderRadius: 8,
+    borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
     marginTop: 16,
+    shadowColor: lightColors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   submitButtonText: {
     color: lightColors.primaryForeground,
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "600",
-    letterSpacing: 0.1,
+    letterSpacing: 0.2,
   },
 });

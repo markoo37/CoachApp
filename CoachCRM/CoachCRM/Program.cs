@@ -11,7 +11,6 @@ var builder = WebApplication.CreateBuilder(args);
 DotNetEnv.Env.Load(Path.Combine(builder.Environment.ContentRootPath, ".env"));
 
 // Add services to the container.
-builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -58,7 +57,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
 
 // JWT Auth konfiguráció
-var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET");
+var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET")
+    ?? throw new InvalidOperationException("JWT_SECRET environment variable not set");
 
 builder.Services.AddAuthentication(options =>
     {
@@ -93,8 +93,9 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowFrontend", policy =>
         policy
             .WithOrigins(
+                "http://localhost:5173",
                 "https://localhost:5173",
-                "https://031f-2001-4c4c-2255-8a00-9052-e6da-49f7-2fbd.ngrok-free.app"
+                "https://palankeeningly-unforeshortened-delicia.ngrok-free.dev"
             )
             .AllowAnyHeader()
             .AllowAnyMethod()
@@ -110,7 +111,7 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
     // minimal query – ezzel felépül a modell, kapcsolat, stb.
-    _ = db.Coaches.Take(1).Any();
+    _ = db.Coaches.Any();
 }
 
 if (app.Environment.IsDevelopment())

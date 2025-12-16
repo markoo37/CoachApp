@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -13,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Header, LogoutButton } from '../../src/components';
 import { useAuthStore } from '../../src/stores/authStore';
 import { lightColors } from '../../src/styles/colors';
 
@@ -103,28 +105,6 @@ export default function TeamsScreen() {
     }
   };
 
-  const handleLogout = () => {
-    Alert.alert(
-      'Kijelentkezés',
-      'Biztosan ki szeretnél jelentkezni?',
-      [
-        { text: 'Mégse', style: 'cancel' },
-        {
-          text: 'Kijelentkezés',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await logout();
-              router.replace('/(auth)/auth');
-            } catch (error) {
-              console.error('Logout error:', error);
-              router.replace('/(auth)/auth');
-            }
-          },
-        },
-      ]
-    );
-  };
 
   const handleTeamPress = (team: TeamData) => {
     // Navigate to trainings page with team parameter
@@ -138,16 +118,10 @@ export default function TeamsScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          <View style={styles.headerContainer}>
-            <View style={styles.iconContainer}>
-              <View style={styles.iconSquare} />
-              <View style={[styles.iconSquare, styles.iconSquareSmall]} />
-            </View>
-            <Text style={styles.title}>Csapatok</Text>
-            <Text style={styles.subtitle}>
-              Üdv, {firstName || 'User'}! 👋
-            </Text>
-          </View>
+          <Header 
+            title="Csapatok" 
+            subtitle={`Üdv, ${firstName || 'User'}! 👋`}
+          />
 
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>
@@ -155,13 +129,7 @@ export default function TeamsScreen() {
             </Text>
           </View>
 
-          <TouchableOpacity 
-            style={styles.logoutButton} 
-            onPress={handleLogout}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.logoutButtonText}>Kijelentkezés</Text>
-          </TouchableOpacity>
+          <LogoutButton onLogout={logout} />
         </ScrollView>
       </SafeAreaView>
     );
@@ -182,16 +150,10 @@ export default function TeamsScreen() {
         }
       >
         {/* Header */}
-        <View style={styles.headerContainer}>
-          <View style={styles.iconContainer}>
-            <View style={styles.iconSquare} />
-            <View style={[styles.iconSquare, styles.iconSquareSmall]} />
-          </View>
-          <Text style={styles.title}>Csapatok</Text>
-          <Text style={styles.subtitle}>
-            Üdv, {firstName || 'User'}! 👋
-          </Text>
-        </View>
+        <Header 
+          title="Csapatok" 
+          subtitle={`Üdv, ${firstName || 'User'}! 👋`}
+        />
 
         {/* Teams Section */}
         <View style={styles.sectionContainer}>
@@ -249,13 +211,7 @@ export default function TeamsScreen() {
         </View>
 
         {/* Logout Button */}
-        <TouchableOpacity 
-          style={styles.logoutButton} 
-          onPress={handleLogout}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.logoutButtonText}>Kijelentkezés</Text>
-        </TouchableOpacity>
+        <LogoutButton onLogout={logout} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -270,43 +226,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 60,
     paddingBottom: 32,
-  },
-  headerContainer: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  iconContainer: {
-    position: 'relative',
-    width: 64,
-    height: 64,
-    marginBottom: 24,
-  },
-  iconSquare: {
-    position: 'absolute',
-    width: 64,
-    height: 64,
-    borderRadius: 12,
-    backgroundColor: lightColors.primary, // #e40145
-  },
-  iconSquareSmall: {
-    width: 16,
-    height: 16,
-    borderRadius: 4,
-    backgroundColor: lightColors.primaryForeground,
-    top: 24,
-    left: 24,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: lightColors.foreground,
-    letterSpacing: -0.5,
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: lightColors.mutedForeground,
-    fontWeight: '400',
   },
   sectionContainer: {
     marginBottom: 40,
@@ -362,25 +281,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
-  logoutButton: {
-    height: 56,
-    backgroundColor: lightColors.primary, // #e40145
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 20,
-    shadowColor: lightColors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  logoutButtonText: {
-    color: lightColors.primaryForeground,
-    fontSize: 16,
-    fontWeight: '600',
-    letterSpacing: 0.1,
-  },
   teamsContainer: {
     gap: 16,
   },
@@ -388,15 +288,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 20,
-    borderWidth: 1,
+    borderWidth: 0.5,
     borderColor: lightColors.border,
     borderRadius: 12,
-    backgroundColor: lightColors.card,
-    shadowColor: lightColors.foreground,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
+    backgroundColor: Platform.OS === 'ios' ? 'rgba(142, 142, 147, 0.08)' : lightColors.card,
+    shadowColor: Platform.OS === 'ios' ? '#000' : 'transparent',
+    shadowOffset: { width: 0, height: 0.5 },
+    shadowOpacity: Platform.OS === 'ios' ? 0.05 : 0,
+    shadowRadius: 1,
+    elevation: 0,
   },
   teamIcon: {
     width: 48,

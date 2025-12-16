@@ -6,7 +6,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Loader2, ArrowLeft, TrendingUp } from "lucide-react";
-import { PolarAngleAxis, PolarGrid, Radar, RadarChart, Area, AreaChart, CartesianGrid, XAxis } from "recharts";
+import { PolarAngleAxis, PolarGrid, Radar, RadarChart, Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import {
   ChartConfig,
   ChartContainer,
@@ -221,6 +221,20 @@ export default function AthleteDetailsPage() {
     return filtered;
   }, [wellnessIndex, timeRange]);
 
+  // Calculate gradient stops based on actual Y values (0-100 scale assumed for wellness index)
+  const gradientStops = useMemo(() => {
+    // Assuming wellness index is 0-100, map value ranges to colors
+    // 0-33: red zone, 33-66: yellow zone, 66-100: green zone
+    // Gradient goes from bottom (0) to top (100), so we reverse: top=green, bottom=red
+    return [
+      { offset: "0%", color: "#22c55e", opacity: 0.8 },   // top (high values) = green
+      { offset: "33%", color: "#22c55e", opacity: 0.6 },  // 66-100 range
+      { offset: "50%", color: "#eab308", opacity: 0.5 },  // middle = yellow
+      { offset: "67%", color: "#ef4444", opacity: 0.6 },  // 0-33 range
+      { offset: "100%", color: "#ef4444", opacity: 0.8 }, // bottom (low values) = red
+    ];
+  }, []);
+
   // Calculate trend (comparing last period with previous period)
   const trend = useMemo(() => {
     if (wellness.length < 2) return null;
@@ -426,20 +440,25 @@ export default function AthleteDetailsPage() {
                   >
                     <AreaChart data={filteredWellnessIndexData}>
                       <defs>
-                        <linearGradient id="fillIndex" x1="0" y1="0" x2="0" y2="1">
-                          <stop
-                            offset="5%"
-                            stopColor="rgb(var(--primary))"
-                            stopOpacity={0.8}
-                          />
-                          <stop
-                            offset="95%"
-                            stopColor="rgb(var(--primary))"
-                            stopOpacity={0.1}
-                          />
+                        <linearGradient id="strokeIndex" x1="0" y1="0" x2="0" y2="1">
+                          {gradientStops.map((stop, i) => (
+                            <stop
+                              key={i}
+                              offset={stop.offset}
+                              stopColor={stop.color}
+                            />
+                          ))}
                         </linearGradient>
                       </defs>
                       <CartesianGrid vertical={false} stroke="rgb(var(--foreground))" strokeOpacity={0.1} />
+                      <YAxis 
+                        domain={[0, 100]} 
+                        tickLine={false}
+                        axisLine={false}
+                        tickMargin={8}
+                        stroke="rgb(var(--foreground))"
+                        strokeOpacity={0.5}
+                      />
                       <XAxis
                         dataKey="date"
                         tickLine={false}
@@ -474,9 +493,10 @@ export default function AthleteDetailsPage() {
                       <Area
                         dataKey="index"
                         type="natural"
-                        fill="url(#fillIndex)"
-                        stroke="rgb(var(--primary))"
+                        fill="transparent"
+                        stroke="url(#strokeIndex)"
                         strokeWidth={2}
+                        activeDot={{ fill: "white", stroke: "black", strokeWidth: 2, r: 5 }}
                       />
                     </AreaChart>
                   </ChartContainer>

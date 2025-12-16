@@ -18,6 +18,8 @@ import {
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { NumberInput } from '../../src/components';
 import { AuthAPI } from '../../src/services/api';
 import { useAuthStore } from '../../src/stores/authStore';
 import { lightColors } from '../../src/styles/colors';
@@ -40,15 +42,17 @@ export default function UnifiedAuthScreen() {
   const [lastName, setLastName] = useState('');
   const [birthDate, setBirthDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [weight, setWeight] = useState('');
-  const [height, setHeight] = useState('');
+  const [weight, setWeight] = useState('70');
+  const [height, setHeight] = useState('175');
+  const [showWeightPicker, setShowWeightPicker] = useState(false);
+  const [showHeightPicker, setShowHeightPicker] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
   const [emailExists, setEmailExists] = useState(false);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
-  const toggleSlideAnim = useRef(new Animated.Value(0)).current;
+  const formFadeAnim = useRef(new Animated.Value(1)).current;
 
   const router = useRouter();
   const { setAuth, fetchAndUpdateProfile } = useAuthStore();
@@ -63,22 +67,39 @@ export default function UnifiedAuthScreen() {
 
   const handleModeSwitch = (newMode: AuthMode) => {
     if (newMode === mode) return;
+    
+    // Simple fade animation - fade out, switch mode, fade in
     Animated.sequence([
-      Animated.timing(toggleSlideAnim, { toValue: -20, duration: 150, useNativeDriver: true }),
-      Animated.timing(toggleSlideAnim, { toValue: 0, duration: 150, useNativeDriver: true }),
-    ]).start();
-    setMode(newMode);
-    setEmail('');
-    setPassword('');
-    setRegEmail('');
-    setRegPassword('');
-    setConfirmPassword('');
-    setFirstName('');
-    setLastName('');
-    setBirthDate(null);
-    setWeight('');
-    setHeight('');
-    setEmailExists(false);
+      Animated.timing(formFadeAnim, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+      Animated.timing(formFadeAnim, {
+        toValue: 1,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      // Reset animation value for next switch
+      formFadeAnim.setValue(1);
+    });
+    
+    // Switch mode in the middle of animation (when opacity is 0)
+    setTimeout(() => {
+      setMode(newMode);
+      setEmail('');
+      setPassword('');
+      setRegEmail('');
+      setRegPassword('');
+      setConfirmPassword('');
+      setFirstName('');
+      setLastName('');
+      setBirthDate(null);
+      setWeight('70');
+      setHeight('175');
+      setEmailExists(false);
+    }, 150);
   };
 
   const validateEmail = (email: string) => {
@@ -173,7 +194,6 @@ export default function UnifiedAuthScreen() {
       const resp = await AuthAPI.loginPlayer({ Email: email.trim(), Password: password });
       await setAuth(resp.token, resp.player);
       await fetchAndUpdateProfile();
-      Alert.alert('Sikeres bejelentkezés!', `Üdv ${resp.player.FirstName}!`);
       router.replace('/(tabs)');
     } catch (err: any) {
       let userMessage = 'Ismeretlen hiba történt';
@@ -232,8 +252,8 @@ export default function UnifiedAuthScreen() {
             setFirstName('');
             setLastName('');
             setBirthDate(null);
-            setWeight('');
-            setHeight('');
+            setWeight('70');
+            setHeight('175');
             setEmailExists(false);
           },
         },
@@ -275,81 +295,124 @@ export default function UnifiedAuthScreen() {
           <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
             {/* Header */}
             <View style={styles.headerContainer}>
-              <View style={styles.iconContainer}>
-                <View style={styles.icon} />
-                <View style={styles.iconInner} />
-              </View>
-              <Text style={styles.title}>Coachify</Text>
-              <Text style={styles.subtitle}>
-                {isLogin ? 'Üdv újra!' : 'Regisztráció'}
+              <Text style={styles.headerTitle}>
+                {isLogin ? 'Üdv újra!' : 'Kezdjük el!'}
+              </Text>
+              <Text style={styles.headerSubtitle}>
+                {isLogin ? 'Jelentkezz be a fiókodba' : 'Hozd létre a fiókodat'}
               </Text>
             </View>
 
             {/* Auth Mode Toggle */}
-            <Animated.View style={[styles.toggleContainer, { transform: [{ translateY: toggleSlideAnim }] }]}>
-              <TouchableOpacity
-                style={[styles.toggleButton, isLogin && styles.toggleButtonActive]}
-                onPress={() => handleModeSwitch('login')}
-              >
-                <Text style={[styles.toggleText, isLogin && styles.toggleTextActive]}>Bejelentkezés</Text>
-              </TouchableOpacity>
+            <View style={styles.toggleContainer}>
               <TouchableOpacity
                 style={[styles.toggleButton, !isLogin && styles.toggleButtonActive]}
                 onPress={() => handleModeSwitch('register')}
               >
                 <Text style={[styles.toggleText, !isLogin && styles.toggleTextActive]}>Regisztráció</Text>
               </TouchableOpacity>
-            </Animated.View>
+              <TouchableOpacity
+                style={[styles.toggleButton, isLogin && styles.toggleButtonActive]}
+                onPress={() => handleModeSwitch('login')}
+              >
+                <Text style={[styles.toggleText, isLogin && styles.toggleTextActive]}>Bejelentkezés</Text>
+              </TouchableOpacity>
+            </View>
 
             {/* Form */}
-            <Animated.View style={[styles.formContainer, { transform: [{ translateY: toggleSlideAnim }] }]}>
-              {/* Login Form */}
-              {isLogin && (
+            <View style={styles.formWrapper}>
+              <Animated.View style={[styles.formContainer, { opacity: formFadeAnim }]}>
+                {/* Login Form */}
+                {isLogin && (
+                  <>
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>Email</Text>
+                      <View style={styles.inputWrapper}>
+                        <Ionicons name="mail-outline" size={20} color={lightColors.mutedForeground} style={styles.inputIcon} />
+                        <TextInput
+                          style={styles.inputWithIcon}
+                          placeholder="email@példa.com"
+                          placeholderTextColor={lightColors.mutedForeground}
+                          value={email}
+                          onChangeText={setEmail}
+                          keyboardType="email-address"
+                          autoCapitalize="none"
+                          editable={!isLoading}
+                        />
+                      </View>
+                    </View>
+
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>Jelszó</Text>
+                      <View style={styles.inputWrapper}>
+                        <Ionicons name="lock-closed-outline" size={20} color={lightColors.mutedForeground} style={styles.inputIcon} />
+                        <TextInput
+                          style={styles.inputWithIcon}
+                          placeholder="••••••••"
+                          placeholderTextColor={lightColors.mutedForeground}
+                          value={password}
+                          onChangeText={setPassword}
+                          secureTextEntry
+                          editable={!isLoading}
+                        />
+                      </View>
+                    </View>
+
+                    <TouchableOpacity style={styles.forgotPassword}>
+                      <Text style={styles.forgotPasswordText}>Elfelejtetted a jelszót?</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+
+                {/* Registration Form - All fields at once */}
+                {!isLogin && (
                 <>
+                  <View style={styles.nameRow}>
+                    <View style={[styles.inputGroup, { flex: 1 }]}>
+                      <Text style={styles.inputLabel}>Keresztnév</Text>
+                      <View style={styles.inputWrapper}>
+                        <Ionicons name="person-outline" size={20} color={lightColors.mutedForeground} style={styles.inputIcon} />
+                        <TextInput
+                          style={styles.inputWithIcon}
+                          placeholder="Keresztnév"
+                          placeholderTextColor={lightColors.mutedForeground}
+                          value={firstName}
+                          onChangeText={setFirstName}
+                          editable={!isLoading}
+                        />
+                      </View>
+                    </View>
+                    <View style={[styles.inputGroup, { flex: 1 }]}>
+                      <Text style={styles.inputLabel}>Vezetéknév</Text>
+                      <View style={styles.inputWrapper}>
+                        <Ionicons name="person-outline" size={20} color={lightColors.mutedForeground} style={styles.inputIcon} />
+                        <TextInput
+                          style={styles.inputWithIcon}
+                          placeholder="Vezetéknév"
+                          placeholderTextColor={lightColors.mutedForeground}
+                          value={lastName}
+                          onChangeText={setLastName}
+                          editable={!isLoading}
+                        />
+                      </View>
+                    </View>
+                  </View>
+
                   <View style={styles.inputGroup}>
                     <Text style={styles.inputLabel}>Email</Text>
-                    <TextInput
-                      style={[styles.input, { borderColor: email ? lightColors.ring : lightColors.border }]}
-                      placeholder="email@példa.com"
-                      placeholderTextColor={lightColors.mutedForeground}
-                      value={email}
-                      onChangeText={setEmail}
-                      keyboardType="email-address"
-                      autoCapitalize="none"
-                      editable={!isLoading}
-                    />
-                  </View>
-
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>Jelszó</Text>
-                    <TextInput
-                      style={[styles.input, { borderColor: password ? lightColors.ring : lightColors.border }]}
-                      placeholder="••••••••"
-                      placeholderTextColor={lightColors.mutedForeground}
-                      value={password}
-                      onChangeText={setPassword}
-                      secureTextEntry
-                      editable={!isLoading}
-                    />
-                  </View>
-                </>
-              )}
-
-              {/* Registration Form - All fields at once */}
-              {!isLogin && (
-                <>
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>Játékos email címed</Text>
-                    <TextInput
-                      style={[styles.input, { borderColor: regEmail ? lightColors.ring : lightColors.border }]}
-                      placeholder="te@email.com"
-                      placeholderTextColor={lightColors.mutedForeground}
-                      value={regEmail}
-                      onChangeText={setRegEmail}
-                      keyboardType="email-address"
-                      autoCapitalize="none"
-                      editable={!isLoading}
-                    />
+                    <View style={styles.inputWrapper}>
+                      <Ionicons name="mail-outline" size={20} color={lightColors.mutedForeground} style={styles.inputIcon} />
+                      <TextInput
+                        style={styles.inputWithIcon}
+                        placeholder="te@email.com"
+                        placeholderTextColor={lightColors.mutedForeground}
+                        value={regEmail}
+                        onChangeText={setRegEmail}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        editable={!isLoading}
+                      />
+                    </View>
                     <Text style={styles.helperText}>
                       Ugyanaz az email, amit az edződdel megosztottál.
                     </Text>
@@ -357,41 +420,37 @@ export default function UnifiedAuthScreen() {
 
                   <View style={styles.inputGroup}>
                     <Text style={styles.inputLabel}>Jelszó</Text>
-                    <TextInput
-                      style={[styles.input, { borderColor: regPassword ? lightColors.ring : lightColors.border }]}
-                      placeholder="Minimum 6 karakter"
-                      placeholderTextColor={lightColors.mutedForeground}
-                      value={regPassword}
-                      onChangeText={setRegPassword}
-                      secureTextEntry
-                      editable={!isLoading}
-                    />
-                    <Text style={styles.helperText}>
-                      A jelszónak legalább 6 karakter hosszúnak kell lennie
-                    </Text>
+                    <View style={styles.inputWrapper}>
+                      <Ionicons name="lock-closed-outline" size={20} color={lightColors.mutedForeground} style={styles.inputIcon} />
+                      <TextInput
+                        style={styles.inputWithIcon}
+                        placeholder="Minimum 6 karakter"
+                        placeholderTextColor={lightColors.mutedForeground}
+                        value={regPassword}
+                        onChangeText={setRegPassword}
+                        secureTextEntry
+                        editable={!isLoading}
+                      />
+                    </View>
                   </View>
 
                   <View style={styles.inputGroup}>
                     <Text style={styles.inputLabel}>Jelszó megerősítése</Text>
-                    <TextInput
-                      style={[
-                        styles.input,
-                        {
-                          borderColor:
-                            confirmPassword && regPassword === confirmPassword
-                              ? lightColors.ring
-                              : confirmPassword && regPassword !== confirmPassword
-                                ? '#ef4444'
-                                : lightColors.border
-                        }
-                      ]}
-                      placeholder="Erősítsd meg a jelszót"
-                      placeholderTextColor={lightColors.mutedForeground}
-                      value={confirmPassword}
-                      onChangeText={setConfirmPassword}
-                      secureTextEntry
-                      editable={!isLoading}
-                    />
+                    <View style={[
+                      styles.inputWrapper,
+                      confirmPassword && regPassword !== confirmPassword && styles.inputWrapperError
+                    ]}>
+                      <Ionicons name="lock-closed-outline" size={20} color={lightColors.mutedForeground} style={styles.inputIcon} />
+                      <TextInput
+                        style={styles.inputWithIcon}
+                        placeholder="Erősítsd meg a jelszót"
+                        placeholderTextColor={lightColors.mutedForeground}
+                        value={confirmPassword}
+                        onChangeText={setConfirmPassword}
+                        secureTextEntry
+                        editable={!isLoading}
+                      />
+                    </View>
                     {confirmPassword && regPassword !== confirmPassword && (
                       <Text style={[styles.helperText, { color: '#ef4444' }]}>
                         A jelszavak nem egyeznek meg
@@ -400,40 +459,13 @@ export default function UnifiedAuthScreen() {
                   </View>
 
                   <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>Keresztnév</Text>
-                    <TextInput
-                      style={[styles.input, { borderColor: firstName ? lightColors.ring : lightColors.border }]}
-                      placeholder="Keresztnév"
-                      placeholderTextColor={lightColors.mutedForeground}
-                      value={firstName}
-                      onChangeText={setFirstName}
-                      editable={!isLoading}
-                    />
-                  </View>
-
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>Vezetéknév</Text>
-                    <TextInput
-                      style={[styles.input, { borderColor: lastName ? lightColors.ring : lightColors.border }]}
-                      placeholder="Vezetéknév"
-                      placeholderTextColor={lightColors.mutedForeground}
-                      value={lastName}
-                      onChangeText={setLastName}
-                      editable={!isLoading}
-                    />
-                  </View>
-
-                  <View style={styles.inputGroup}>
                     <Text style={styles.inputLabel}>Születési dátum (opcionális)</Text>
                     <TouchableOpacity
                       onPress={() => setShowDatePicker(true)}
                       disabled={isLoading}
-                      style={[
-                        styles.input,
-                        styles.datePickerButton,
-                        { borderColor: birthDate ? lightColors.ring : lightColors.border }
-                      ]}
+                      style={styles.inputWrapper}
                     >
+                      <Ionicons name="calendar-outline" size={20} color={lightColors.mutedForeground} style={styles.inputIcon} />
                       <Text
                         style={[
                           styles.datePickerText,
@@ -479,7 +511,7 @@ export default function UnifiedAuthScreen() {
                               <DateTimePicker
                                 value={birthDate || new Date()}
                                 mode="date"
-                                display="spinner"
+                                display="inline"
                                 onChange={(event, selectedDate) => {
                                   if (selectedDate) {
                                     setBirthDate(selectedDate);
@@ -514,30 +546,37 @@ export default function UnifiedAuthScreen() {
                     )}
                   </View>
 
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>Súly kg (opcionális)</Text>
-                    <TextInput
-                      style={[styles.input, { borderColor: weight ? lightColors.ring : lightColors.border }]}
-                      placeholder="70"
-                      placeholderTextColor={lightColors.mutedForeground}
-                      value={weight}
-                      onChangeText={setWeight}
-                      keyboardType="numeric"
-                      editable={!isLoading}
-                    />
-                  </View>
-
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>Magasság cm (opcionális)</Text>
-                    <TextInput
-                      style={[styles.input, { borderColor: height ? lightColors.ring : lightColors.border }]}
-                      placeholder="175"
-                      placeholderTextColor={lightColors.mutedForeground}
-                      value={height}
-                      onChangeText={setHeight}
-                      keyboardType="numeric"
-                      editable={!isLoading}
-                    />
+                  <View style={styles.nameRow}>
+                    <View style={[styles.inputGroup, { flex: 1 }]}>
+                      <NumberInput
+                        label="Súly (opcionális)"
+                        value={weight}
+                        onChange={setWeight}
+                        unit="kg"
+                        min={30}
+                        max={200}
+                        defaultValue={70}
+                        customValueTitle="Súly megadása"
+                        customValueMessage="Add meg a súlyt kilogrammban:"
+                        customValueError="A súly 30-200 kg között lehet"
+                        disabled={isLoading}
+                      />
+                    </View>
+                    <View style={[styles.inputGroup, { flex: 1 }]}>
+                      <NumberInput
+                        label="Magasság (opcionális)"
+                        value={height}
+                        onChange={setHeight}
+                        unit="cm"
+                        min={100}
+                        max={250}
+                        defaultValue={175}
+                        customValueTitle="Magasság megadása"
+                        customValueMessage="Add meg a magasságot centiméterben:"
+                        customValueError="A magasság 100-250 cm között lehet"
+                        disabled={isLoading}
+                      />
+                    </View>
                   </View>
                 </>
               )}
@@ -551,13 +590,24 @@ export default function UnifiedAuthScreen() {
                   <ActivityIndicator color={lightColors.primaryForeground} size="small" />
                 ) : (
                   <Text style={styles.buttonText}>
-                    {isLogin ? 'Bejelentkezés' : 'Fiók létrehozása'}
+                    {isLogin ? 'Bejelentkezés' : 'Regisztráció'}
                   </Text>
                 )}
               </TouchableOpacity>
-            </Animated.View>
 
-            <Text style={styles.statusText}>{__DEV__ ? 'Development' : 'Production'}</Text>
+              {/* Switch mode link */}
+              <View style={styles.switchModeContainer}>
+                <Text style={styles.switchModeText}>
+                  {isLogin ? 'Nincs még fiókod? ' : 'Már van fiókod? '}
+                </Text>
+                <TouchableOpacity onPress={() => handleModeSwitch(isLogin ? 'register' : 'login')}>
+                  <Text style={styles.switchModeLink}>
+                    {isLogin ? 'Regisztrálj!' : 'Jelentkezz be!'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              </Animated.View>
+            </View>
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -565,7 +615,6 @@ export default function UnifiedAuthScreen() {
   );
 }
 
-// Styles változatlanul mehet ugyanúgy, mint nálad
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   container: {
@@ -583,119 +632,123 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   headerContainer: {
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  iconContainer: {
-    position: 'relative',
-    width: 64,
-    height: 64,
     marginBottom: 24,
   },
-  icon: {
-    position: 'absolute',
-    width: 64,
-    height: 64,
-    backgroundColor: lightColors.primary,
-    borderRadius: 8,
-  },
-  iconInner: {
-    position: 'absolute',
-    width: 16,
-    height: 16,
-    backgroundColor: lightColors.primaryForeground,
-    borderRadius: 2,
-    top: 24,
-    left: 24,
-  },
-  title: {
-    fontSize: 32,
+  headerTitle: {
+    fontSize: 28,
     fontWeight: '700',
     color: lightColors.foreground,
     marginBottom: 8,
-    letterSpacing: -0.5,
   },
-  subtitle: {
-    fontSize: 16,
+  headerSubtitle: {
+    fontSize: 15,
     color: lightColors.mutedForeground,
-    fontWeight: '400',
   },
   toggleContainer: {
     flexDirection: 'row',
     backgroundColor: lightColors.muted,
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 4,
-    marginBottom: 32,
+    marginBottom: 24,
   },
   toggleButton: {
     flex: 1,
     paddingVertical: 12,
     alignItems: 'center',
-    borderRadius: 6,
+    borderRadius: 10,
   },
   toggleButtonActive: {
-    backgroundColor: lightColors.background,
-    shadowColor: lightColors.foreground,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    backgroundColor: lightColors.primary,
   },
   toggleText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
     color: lightColors.mutedForeground,
   },
   toggleTextActive: {
-    color: lightColors.foreground,
-    fontWeight: '600',
+    color: lightColors.primaryForeground,
+  },
+  formWrapper: {
+    minHeight: 400,
   },
   formContainer: {
-    gap: 20,
+    gap: 16,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    gap: 12,
   },
   inputGroup: {
-    gap: 8,
+    gap: 6,
+    marginBottom: 4,
   },
   inputLabel: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 13,
+    fontWeight: '600',
     color: lightColors.foreground,
+    letterSpacing: -0.1,
+    marginBottom: 2,
   },
-  input: {
-    height: 44,
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 50,
     borderWidth: 1,
     borderColor: lightColors.border,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    fontSize: 16,
+    borderRadius: 12,
     backgroundColor: lightColors.background,
-    color: lightColors.foreground,
   },
-  datePickerButton: {
-    justifyContent: 'center',
+  inputWrapperError: {
+    borderColor: '#ef4444',
+  },
+  inputIcon: {
+    marginLeft: 14,
+    marginRight: 10,
+  },
+  inputWithIcon: {
+    flex: 1,
+    height: '100%',
+    fontSize: 16,
+    color: lightColors.foreground,
+    paddingRight: 14,
+  },
+  forgotPassword: {
+    alignSelf: 'flex-end',
+    marginTop: -8,
+  },
+  forgotPasswordText: {
+    fontSize: 13,
+    color: lightColors.primary,
+    fontWeight: '500',
   },
   datePickerText: {
     fontSize: 16,
     color: lightColors.foreground,
+    flex: 1,
   },
   datePickerModalContainer: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'transparent',
   },
   datePickerModalContent: {
     backgroundColor: lightColors.background,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    paddingBottom: 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 10,
   },
   datePickerHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
+    paddingVertical: 14,
+    borderBottomWidth: 0.5,
     borderBottomColor: lightColors.border,
   },
   datePickerCancelButton: {
@@ -724,10 +777,12 @@ const styles = StyleSheet.create({
   datePickerWrapper: {
     backgroundColor: lightColors.background,
     paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   datePickerIOS: {
     width: '100%',
-    height: 200,
+    height: 330,
   },
   helperText: {
     fontSize: 12,
@@ -735,24 +790,33 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   submitButton: {
-    height: 44,
+    height: 52,
     backgroundColor: lightColors.primary,
-    borderRadius: 8,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 16,
   },
-  buttonLoading: { opacity: 0.7 },
+  buttonLoading: { 
+    opacity: 0.7,
+  },
   buttonText: {
     color: lightColors.primaryForeground,
     fontSize: 16,
     fontWeight: '600',
   },
-  statusText: {
-    textAlign: 'center',
+  switchModeContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 20,
+  },
+  switchModeText: {
+    fontSize: 14,
     color: lightColors.mutedForeground,
-    fontSize: 12,
-    marginTop: 32,
-    opacity: 0.6,
+  },
+  switchModeLink: {
+    fontSize: 14,
+    color: lightColors.primary,
+    fontWeight: '600',
   },
 });

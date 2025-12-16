@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -13,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Header, LogoutButton } from '../../src/components';
 import { useAuthStore } from '../../src/stores/authStore';
 import { lightColors } from '../../src/styles/colors';
 
@@ -124,28 +126,6 @@ export default function TrainingsScreen() {
     }
   };
 
-  const handleLogout = () => {
-    Alert.alert(
-      'Kijelentkezés',
-      'Biztosan ki szeretnél jelentkezni?',
-      [
-        { text: 'Mégse', style: 'cancel' },
-        {
-          text: 'Kijelentkezés',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await logout();
-              router.replace('/(auth)/auth');
-            } catch (error) {
-              console.error('Logout error:', error);
-              router.replace('/(auth)/auth');
-            }
-          },
-        },
-      ]
-    );
-  };
 
   const handleBackToTeams = () => {
     router.back();
@@ -155,16 +135,10 @@ export default function TrainingsScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          <View style={styles.headerContainer}>
-            <View style={styles.iconContainer}>
-              <View style={styles.iconSquare} />
-              <View style={[styles.iconSquare, styles.iconSquareSmall]} />
-            </View>
-            <Text style={styles.title}>Edzések</Text>
-            <Text style={styles.subtitle}>
-              Üdv, {firstName || 'User'}! 👋
-            </Text>
-          </View>
+          <Header 
+            title="Edzések" 
+            subtitle={`Üdv, ${firstName || 'User'}! 👋`}
+          />
 
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>
@@ -172,13 +146,7 @@ export default function TrainingsScreen() {
             </Text>
           </View>
 
-          <TouchableOpacity 
-            style={styles.logoutButton} 
-            onPress={handleLogout}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.logoutButtonText}>Kijelentkezés</Text>
-          </TouchableOpacity>
+          <LogoutButton onLogout={logout} />
         </ScrollView>
       </SafeAreaView>
     );
@@ -194,16 +162,10 @@ export default function TrainingsScreen() {
         }
       >
         {/* Header */}
-        <View style={styles.headerContainer}>
-          <View style={styles.iconContainer}>
-            <View style={styles.iconSquare} />
-            <View style={[styles.iconSquare, styles.iconSquareSmall]} />
-          </View>
-          <Text style={styles.title}>Edzések</Text>
-          <Text style={styles.subtitle}>
-            Üdv, {firstName || 'User'}! 👋
-          </Text>
-        </View>
+        <Header 
+          title="Edzések" 
+          subtitle={`Üdv, ${firstName || 'User'}! 👋`}
+        />
 
         {/* Training Plans Section */}
         <View style={styles.sectionContainer}>
@@ -266,13 +228,7 @@ export default function TrainingsScreen() {
         </View>
 
         {/* Logout Button */}
-        <TouchableOpacity 
-          style={styles.logoutButton} 
-          onPress={handleLogout}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.logoutButtonText}>Kijelentkezés</Text>
-        </TouchableOpacity>
+        <LogoutButton onLogout={logout} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -287,43 +243,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     paddingTop: 60,
     paddingBottom: 32,
-  },
-  headerContainer: {
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  iconContainer: {
-    position: 'relative',
-    width: 64,
-    height: 64,
-    marginBottom: 24,
-  },
-  iconSquare: {
-    position: 'absolute',
-    width: 64,
-    height: 64,
-    borderRadius: 12,
-    backgroundColor: lightColors.primary, // #e40145
-  },
-  iconSquareSmall: {
-    width: 16,
-    height: 16,
-    borderRadius: 4,
-    backgroundColor: lightColors.primaryForeground,
-    top: 24,
-    left: 24,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: lightColors.foreground,
-    letterSpacing: -0.5,
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: lightColors.mutedForeground,
-    fontWeight: '400',
   },
   sectionContainer: {
     marginBottom: 32,
@@ -356,20 +275,6 @@ const styles = StyleSheet.create({
     color: lightColors.mutedForeground,
     textAlign: 'center',
   },
-  logoutButton: {
-    height: 56,
-    backgroundColor: lightColors.primary, // #e40145
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  logoutButtonText: {
-    color: lightColors.primaryForeground,
-    fontSize: 16,
-    fontWeight: '600',
-    letterSpacing: 0.1,
-  },
   backText: {
     fontSize: 14,
     color: lightColors.mutedForeground,
@@ -379,11 +284,16 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   trainingCard: {
-    padding: 16,
-    borderWidth: 1,
+    padding: 20,
+    borderWidth: 0.5,
     borderColor: lightColors.border,
-    borderRadius: 8,
-    backgroundColor: lightColors.card,
+    borderRadius: 12,
+    backgroundColor: Platform.OS === 'ios' ? 'rgba(142, 142, 147, 0.08)' : lightColors.card,
+    shadowColor: Platform.OS === 'ios' ? '#000' : 'transparent',
+    shadowOffset: { width: 0, height: 0.5 },
+    shadowOpacity: Platform.OS === 'ios' ? 0.05 : 0,
+    shadowRadius: 1,
+    elevation: 0,
   },
   trainingHeader: {
     flexDirection: 'row',

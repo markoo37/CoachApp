@@ -6,6 +6,6 @@ public class CoachAthlete
     public int CoachId { get; set; }
     public int AthleteId { get; set; }
 
-    public Coach Coach { get; set; }
-    public Athlete Athlete { get; set; }
+    public Coach? Coach { get; set; }
+    public Athlete? Athlete { get; set; }
 }

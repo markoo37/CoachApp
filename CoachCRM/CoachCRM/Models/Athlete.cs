@@ -18,7 +18,7 @@ public class Athlete
     public PlayerUser? User { get; set; }
     
     public List<TeamMembership> TeamMemberships { get; set; } = new();
-    public ICollection<CoachAthlete> CoachAthletes { get; set; }
+    public ICollection<CoachAthlete>? CoachAthletes { get; set; }
     
     //wellness kerdoivek
     public ICollection<WellnessCheck> WellnessChecks { get; set; } = new List<WellnessCheck>();

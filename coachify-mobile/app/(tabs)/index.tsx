@@ -2,7 +2,6 @@
 import { useRouter } from 'expo-router';
 import React from 'react';
 import {
-  Alert,
   Platform,
   ScrollView,
   StyleSheet,
@@ -12,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Header, LogoutButton } from '../../src/components';
 import { useAuthStore } from '../../src/stores/authStore';
 import { lightColors } from '../../src/styles/colors';
 
@@ -41,29 +41,6 @@ export default function HomeScreen() {
     Id: athleteId
   } = player || {};
 
-  const handleLogout = () => {
-    Alert.alert(
-      'Kijelentkezés',
-      'Biztosan ki szeretnél jelentkezni?',
-      [
-        { text: 'Mégse', style: 'cancel' },
-        {
-          text: 'Kijelentkezés',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await logout();
-              router.replace('/(auth)/auth');
-            } catch (error) {
-              console.error('Logout error:', error);
-              router.replace('/(auth)/auth');
-            }
-          },
-        },
-      ]
-    );
-  };
-
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView 
@@ -71,16 +48,10 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <View style={styles.headerContainer}>
-          <View style={styles.iconContainer}>
-            <View style={styles.iconSquare} />
-            <View style={[styles.iconSquare, styles.iconSquareSmall]} />
-          </View>
-          <Text style={styles.title}>Főoldal</Text>
-          <Text style={styles.subtitle}>
-            Üdv, {firstName || 'User'}! 👋
-          </Text>
-        </View>
+        <Header 
+          title="Főoldal" 
+          subtitle={`Üdv, ${firstName || 'User'}! 👋`}
+        />
 
         {/* Profile Section */}
         <View style={styles.sectionContainer}>
@@ -155,30 +126,6 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Status Section */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Rendszer állapot</Text>
-          
-          <View style={styles.statusGrid}>
-            <View style={styles.statusItem}>
-              <Text style={styles.statusDot}>●</Text>
-              <Text style={styles.statusText}>Auth rendszer</Text>
-            </View>
-            <View style={styles.statusItem}>
-              <Text style={styles.statusDot}>●</Text>
-              <Text style={styles.statusText}>Token kezelés</Text>
-            </View>
-            <View style={styles.statusItem}>
-              <Text style={[styles.statusDot, !apiAvailable && { color: lightColors.destructive }]}>●</Text>
-              <Text style={styles.statusText}>API kapcsolat</Text>
-            </View>
-            <View style={styles.statusItem}>
-              <Text style={styles.statusDot}>●</Text>
-              <Text style={styles.statusText}>Navigáció</Text>
-            </View>
-          </View>
-        </View>
-
         {/* Debug Info (Development only) */}
         {__DEV__ && (
           <View style={styles.sectionContainer}>
@@ -195,13 +142,7 @@ export default function HomeScreen() {
         )}
 
         {/* Logout Button */}
-        <TouchableOpacity 
-          style={styles.logoutButton} 
-          onPress={handleLogout}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.logoutButtonText}>Kijelentkezés</Text>
-        </TouchableOpacity>
+        <LogoutButton onLogout={logout} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -217,43 +158,6 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingBottom: 32,
   },
-  headerContainer: {
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  iconContainer: {
-    position: 'relative',
-    width: 64,
-    height: 64,
-    marginBottom: 24,
-  },
-  iconSquare: {
-    position: 'absolute',
-    width: 64,
-    height: 64,
-    borderRadius: 12,
-    backgroundColor: lightColors.primary, // #e40145
-  },
-  iconSquareSmall: {
-    width: 16,
-    height: 16,
-    borderRadius: 4,
-    backgroundColor: lightColors.primaryForeground,
-    top: 24,
-    left: 24,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: lightColors.foreground,
-    letterSpacing: -0.5,
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: lightColors.mutedForeground,
-    fontWeight: '400',
-  },
   sectionContainer: {
     marginBottom: 32,
   },
@@ -266,10 +170,15 @@ const styles = StyleSheet.create({
   },
   profileCard: {
     padding: 24,
-    borderWidth: 1,
+    borderWidth: 0.5,
     borderColor: lightColors.border,
-    borderRadius: 8,
-    backgroundColor: lightColors.card,
+    borderRadius: 12,
+    backgroundColor: Platform.OS === 'ios' ? 'rgba(142, 142, 147, 0.08)' : lightColors.card,
+    shadowColor: Platform.OS === 'ios' ? '#000' : 'transparent',
+    shadowOffset: { width: 0, height: 0.5 },
+    shadowOpacity: Platform.OS === 'ios' ? 0.05 : 0,
+    shadowRadius: 1,
+    elevation: 0,
   },
   avatarContainer: {
     alignItems: 'center',
@@ -320,10 +229,15 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     padding: 20,
-    borderWidth: 1,
+    borderWidth: 0.5,
     borderColor: lightColors.border,
-    borderRadius: 8,
-    backgroundColor: lightColors.card,
+    borderRadius: 12,
+    backgroundColor: Platform.OS === 'ios' ? 'rgba(142, 142, 147, 0.08)' : lightColors.card,
+    shadowColor: Platform.OS === 'ios' ? '#000' : 'transparent',
+    shadowOffset: { width: 0, height: 0.5 },
+    shadowOpacity: Platform.OS === 'ios' ? 0.05 : 0,
+    shadowRadius: 1,
+    elevation: 0,
   },
   quickActionButtonDisabled: {
     backgroundColor: lightColors.muted,
@@ -376,10 +290,15 @@ const styles = StyleSheet.create({
   },
   debugContainer: {
     padding: 16,
-    borderWidth: 1,
+    borderWidth: 0.5,
     borderColor: lightColors.border,
-    borderRadius: 8,
-    backgroundColor: lightColors.muted,
+    borderRadius: 12,
+    backgroundColor: Platform.OS === 'ios' ? 'rgba(142, 142, 147, 0.08)' : lightColors.muted,
+    shadowColor: Platform.OS === 'ios' ? '#000' : 'transparent',
+    shadowOffset: { width: 0, height: 0.5 },
+    shadowOpacity: Platform.OS === 'ios' ? 0.05 : 0,
+    shadowRadius: 1,
+    elevation: 0,
   },
   debugText: {
     fontSize: 12,
@@ -387,19 +306,5 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
     marginBottom: 4,
     fontWeight: '400',
-  },
-  logoutButton: {
-    height: 56,
-    backgroundColor: lightColors.primary, // #e40145
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  logoutButtonText: {
-    color: lightColors.primaryForeground,
-    fontSize: 16,
-    fontWeight: '600',
-    letterSpacing: 0.1,
   },
 });
