@@ -236,7 +236,6 @@ export default function Navbar() {
         {/* Upgrade section - optional, can be removed */}
         <div className="flex-shrink-0 border-t border-border p-4">
           <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-lg p-4 text-center">
-            <p className="text-xs font-medium text-foreground mb-2">Upgrade to Premium</p>
             <ThemeToggle />
           </div>
         </div>

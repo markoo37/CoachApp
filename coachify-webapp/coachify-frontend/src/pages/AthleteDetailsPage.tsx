@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import api from "../api/api";
 import TopHeader from "../components/TopHeader";
@@ -6,7 +6,8 @@ import { getAthleteWellness, WellnessCheck } from "../api/wellness";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, ArrowLeft, TrendingUp } from "lucide-react";
+import { Loader2, ArrowLeft, TrendingUp, ChevronDown } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { PolarAngleAxis, PolarGrid, Radar, RadarChart, Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import {
   ChartConfig,
@@ -38,9 +39,38 @@ export default function AthleteDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [wellnessLoading, setWellnessLoading] = useState(false);
   const [wellnessIndexLoading, setWellnessIndexLoading] = useState(false);
-  const [days, setDays] = useState(7);
+  const [wellnessSummaryTimeRange, setWellnessSummaryTimeRange] = useState<TimeRange>("7d");
   const [timeRange, setTimeRange] = useState<TimeRange>("30d");
+  
+  // Convert wellness summary timeRange to days
+  const days = useMemo(() => {
+    return wellnessSummaryTimeRange === "7d" ? 7 : wellnessSummaryTimeRange === "30d" ? 30 : 90;
+  }, [wellnessSummaryTimeRange]);
   const [error, setError] = useState<string | null>(null);
+  const [expandedCards, setExpandedCards] = useState<{
+    wellnessSummary: boolean;
+    wellnessIndex: boolean;
+    detailedWellness: boolean;
+  }>({
+    wellnessSummary: false,
+    wellnessIndex: false,
+    detailedWellness: false,
+  });
+
+  // Refs for scroll-to functionality
+  const wellnessSummaryRef = useRef<HTMLDivElement>(null);
+  const wellnessIndexRef = useRef<HTMLDivElement>(null);
+  const detailedWellnessRef = useRef<HTMLDivElement>(null);
+
+  // Helper function to scroll to a ref with offset
+  const scrollToRef = (ref: React.RefObject<HTMLDivElement | null>, yOffset: number = -200) => {
+    if (ref.current) {
+      const element = ref.current;
+      const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
+      window.scrollTo({ top: y, behavior: "smooth" });
+    }
+  };
+
 
   // Load athlete data only once
   useEffect(() => {
@@ -281,12 +311,19 @@ export default function AthleteDetailsPage() {
       
       <div className="p-8">
         <div className="max-w-4xl mx-auto space-y-6">
-          <Button asChild variant="outline">
-            <Link to="/athletes">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Vissza a sportolókhoz
-            </Link>
-          </Button>
+          <div className="sticky top-20 z-30 -mt-8 pt-8">
+            <Button 
+              asChild 
+              variant="outline" 
+              className="fixed left-4 lg:left-72 top-20 transition-all duration-300 hover:translate-x-1"
+            >
+              <Link to="/athletes">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                <span className="hidden sm:inline">Vissza a sportolókhoz</span>
+                <span className="sm:hidden">Vissza</span>
+              </Link>
+            </Button>
+          </div>
 
         {/* Alapadatok kártya */}
         <Card>
@@ -316,23 +353,47 @@ export default function AthleteDetailsPage() {
         </Card>
 
         {/* Wellness radar chart */}
-        <Card>
-          <CardHeader className="flex items-center justify-between">
-            <div>
-              <CardTitle>Wellness összefoglaló</CardTitle>
-              <CardDescription>Utolsó {days} nap átlaga</CardDescription>
+        <Card ref={wellnessSummaryRef}>
+          <CardHeader className="py-6">
+            <div className="flex justify-between items-center min-h-[3rem]">
+              <button
+              onClick={() => {
+                const wasExpanded = expandedCards.wellnessSummary;
+                setExpandedCards(prev => ({ ...prev, wellnessSummary: !prev.wellnessSummary }));
+                if (!wasExpanded) {
+                  setTimeout(() => {
+                    scrollToRef(wellnessSummaryRef, -200);
+                  }, 350);
+                }
+              }}
+                className="flex items-center gap-3 text-left group flex-1"
+              >
+                <div>
+                  <CardTitle className="group-hover:text-primary transition-colors">Wellness összefoglaló</CardTitle>
+                  <CardDescription>Áttekintés a wellness paraméterekről</CardDescription>
+                </div>
+                <ChevronDown
+                  className={`w-5 h-5 text-muted-foreground transition-transform duration-200 flex-shrink-0 ml-auto ${
+                    expandedCards.wellnessSummary ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
             </div>
-            <select
-              className="border rounded px-2 py-1 text-sm bg-background"
-              value={days}
-              onChange={e => setDays(Number(e.target.value))}
-            >
-              <option value={7}>7 nap</option>
-              <option value={14}>14 nap</option>
-              <option value={30}>30 nap</option>
-            </select>
           </CardHeader>
-          <CardContent className="pb-0 px-6 relative">
+          <AnimatePresence mode="wait">
+            {expandedCards.wellnessSummary && (
+              <motion.div
+                key="wellness-summary-content"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className="overflow-hidden"
+              >
+                <CardContent className="pb-0 px-6 relative">
+                  <div className="flex justify-end mb-4">
+                    <TimeRangeSelect value={wellnessSummaryTimeRange} onValueChange={setWellnessSummaryTimeRange} />
+                  </div>
             {chartData.length === 0 && !wellnessLoading ? (
               <p className="text-muted-foreground text-center py-8">
                 Nincs elérhető wellness adat az utolsó {days} napban.
@@ -381,35 +442,70 @@ export default function AthleteDetailsPage() {
                 )}
               </div>
             )}
-          </CardContent>
-          {chartData.length > 0 && (
-            <CardFooter className="flex-col gap-2 text-sm">
-              {trend !== null && (
-                <div className="flex items-center gap-2 leading-none font-medium">
-                  {trend > 0 ? "Növekedés" : trend < 0 ? "Csökkenés" : "Változatlan"} {trend !== 0 && `${Math.abs(trend).toFixed(1)}%`}
-                  {trend > 0 && <TrendingUp className="h-4 w-4" />}
-                  {trend < 0 && <TrendingUp className="h-4 w-4 rotate-180" />}
-                </div>
-              )}
-              <div className="text-muted-foreground flex items-center gap-2 leading-none">
-                {wellness.length} mérés az utolsó {days} napban
-              </div>
-            </CardFooter>
-          )}
+                </CardContent>
+                {chartData.length > 0 && (
+                  <CardFooter className="flex-col gap-2 text-sm">
+                    {trend !== null && (
+                      <div className="flex items-center gap-2 leading-none font-medium">
+                        {trend > 0 ? "Növekedés" : trend < 0 ? "Csökkenés" : "Változatlan"} {trend !== 0 && `${Math.abs(trend).toFixed(1)}%`}
+                        {trend > 0 && <TrendingUp className="h-4 w-4" />}
+                        {trend < 0 && <TrendingUp className="h-4 w-4 rotate-180" />}
+                      </div>
+                    )}
+                    <div className="text-muted-foreground flex items-center gap-2 leading-none">
+                      {wellness.length} mérés az utolsó {days} napban
+                    </div>
+                  </CardFooter>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </Card>
 
         {/* Wellness Index Area Chart */}
-        <Card>
-          <CardHeader className="flex items-center gap-2 space-y-0 border-b py-5 sm:flex-row">
-            <div className="grid flex-1 gap-1">
-              <CardTitle>Jólléti állapot indexe (idősor)</CardTitle>
-              <CardDescription>
-                Wellness index változása az idő múlásával
-              </CardDescription>
+        <Card ref={wellnessIndexRef}>
+          <CardHeader className="py-6">
+            <div className="flex justify-between items-center min-h-[3rem]">
+              <button
+              onClick={() => {
+                const wasExpanded = expandedCards.wellnessIndex;
+                setExpandedCards(prev => ({ ...prev, wellnessIndex: !prev.wellnessIndex }));
+                if (!wasExpanded) {
+                  setTimeout(() => {
+                    scrollToRef(wellnessIndexRef, -200);
+                  }, 350);
+                }
+              }}
+                className="flex items-center gap-3 text-left group flex-1"
+              >
+                <div className="grid flex-1 gap-1">
+                  <CardTitle className="group-hover:text-primary transition-colors">Jólléti állapot indexe (idősor)</CardTitle>
+                  <CardDescription>
+                    Wellness index változása az idő múlásával
+                  </CardDescription>
+                </div>
+                <ChevronDown
+                  className={`w-5 h-5 text-muted-foreground transition-transform duration-200 flex-shrink-0 ${
+                    expandedCards.wellnessIndex ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
             </div>
-            <TimeRangeSelect value={timeRange} onValueChange={setTimeRange} />
           </CardHeader>
-          <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
+          <AnimatePresence mode="wait">
+            {expandedCards.wellnessIndex && (
+              <motion.div
+                key="wellness-index-content"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className="overflow-hidden"
+              >
+                <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
+                  <div className="flex justify-end mb-4">
+                    <TimeRangeSelect value={timeRange} onValueChange={setTimeRange} />
+                  </div>
             {filteredWellnessIndexData.length === 0 && !wellnessIndexLoading ? (
               <p className="text-muted-foreground text-center py-8">
                 Nincs elérhető wellness index adat a kiválasztott időszakban.
@@ -479,7 +575,20 @@ export default function AthleteDetailsPage() {
                         fill="transparent"
                         stroke="url(#strokeIndex)"
                         strokeWidth={2}
-                        activeDot={{ fill: "white", stroke: "black", strokeWidth: 2, r: 5 }}
+                        dot={{
+                          fill: "rgb(var(--foreground))",
+                          fillOpacity: 0.6,
+                          stroke: "rgb(var(--background))",
+                          strokeWidth: 1.5,
+                          r: 3,
+                        }}
+                        activeDot={{
+                          fill: "rgb(var(--foreground))",
+                          fillOpacity: 0.9,
+                          stroke: "rgb(var(--background))",
+                          strokeWidth: 2,
+                          r: 4,
+                        }}
                       />
                     </AreaChart>
                   </ChartContainer>
@@ -491,93 +600,143 @@ export default function AthleteDetailsPage() {
                 )}
               </div>
             )}
-          </CardContent>
+                </CardContent>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </Card>
 
         {/* Részletes lista */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Részletes wellness adatok</CardTitle>
-            <CardDescription>Időrendben visszafelé</CardDescription>
+        <Card ref={detailedWellnessRef}>
+          <CardHeader className="py-6">
+            <button
+              onClick={() => {
+                const wasExpanded = expandedCards.detailedWellness;
+                setExpandedCards(prev => ({ ...prev, detailedWellness: !prev.detailedWellness }));
+                if (!wasExpanded) {
+                  setTimeout(() => {
+                    scrollToRef(detailedWellnessRef, -300);
+                  }, 350);
+                }
+              }}
+              className="flex items-center gap-3 text-left group w-full"
+            >
+              <div>
+                <CardTitle className="group-hover:text-primary transition-colors">Részletes wellness adatok</CardTitle>
+                <CardDescription>Időrendben visszafelé</CardDescription>
+              </div>
+              <ChevronDown
+                className={`w-5 h-5 text-muted-foreground transition-transform duration-200 flex-shrink-0 ml-auto ${
+                  expandedCards.detailedWellness ? 'rotate-180' : ''
+                }`}
+              />
+            </button>
           </CardHeader>
-          <CardContent>
+          <AnimatePresence mode="wait">
+            {expandedCards.detailedWellness && (
+              <motion.div
+                key="detailed-wellness-content"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className="overflow-hidden"
+              >
+                <CardContent>
             {wellness.length === 0 ? (
               <p className="text-muted-foreground">
                 Nincs elérhető wellness adat az utolsó {days} napban.
               </p>
             ) : (
-              <div className="space-y-3">
-                {wellness.map(w => (
-                  <div
-                    key={w.Id}
-                    className="border rounded-lg px-3 py-2 flex flex-col md:flex-row md:items-center md:justify-between gap-2"
-                  >
-                    <div>
-                      <p className="font-medium">
-                        {new Date(w.Date).toLocaleDateString("hu-HU", {
-                          year: "numeric",
-                          month: "2-digit",
-                          day: "2-digit",
-                        })}
-                      </p>
-                      {w.Comment && (
-                        <p className="text-sm text-muted-foreground mt-1">
-                          Megjegyzés: {w.Comment}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap gap-2 text-xs md:text-sm">
-                      <Badge 
-                        variant="outline" 
-                        style={{ 
-                          borderColor: getWellnessBadgeColor("Fatigue", w.Fatigue),
-                          color: getWellnessBadgeColor("Fatigue", w.Fatigue)
-                        }}
-                      >
-                        Fár: {w.Fatigue}/10
-                      </Badge>
-                      <Badge 
-                        variant="outline" 
-                        style={{ 
-                          borderColor: getWellnessBadgeColor("SleepQuality", w.SleepQuality),
-                          color: getWellnessBadgeColor("SleepQuality", w.SleepQuality)
-                        }}
-                      >
-                        Alv: {w.SleepQuality}/10
-                      </Badge>
-                      <Badge 
-                        variant="outline" 
-                        style={{ 
-                          borderColor: getWellnessBadgeColor("MuscleSoreness", w.MuscleSoreness),
-                          color: getWellnessBadgeColor("MuscleSoreness", w.MuscleSoreness)
-                        }}
-                      >
-                        Izom: {w.MuscleSoreness}/10
-                      </Badge>
-                      <Badge 
-                        variant="outline" 
-                        style={{ 
-                          borderColor: getWellnessBadgeColor("Stress", w.Stress),
-                          color: getWellnessBadgeColor("Stress", w.Stress)
-                        }}
-                      >
-                        Stressz: {w.Stress}/10
-                      </Badge>
-                      <Badge 
-                        variant="outline" 
-                        style={{ 
-                          borderColor: getWellnessBadgeColor("Mood", w.Mood),
-                          color: getWellnessBadgeColor("Mood", w.Mood)
-                        }}
-                      >
-                        Hang: {w.Mood}/10
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-3 px-4 font-medium text-sm text-muted-foreground">Dátum</th>
+                      <th className="text-center py-3 px-4 font-medium text-sm text-muted-foreground">Fáradtság</th>
+                      <th className="text-center py-3 px-4 font-medium text-sm text-muted-foreground">Alvás</th>
+                      <th className="text-center py-3 px-4 font-medium text-sm text-muted-foreground">Izomláz</th>
+                      <th className="text-center py-3 px-4 font-medium text-sm text-muted-foreground">Stressz</th>
+                      <th className="text-center py-3 px-4 font-medium text-sm text-muted-foreground">Hangulat</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {wellness.map(w => (
+                      <tr key={w.Id} className="border-b hover:bg-muted/50 transition-colors">
+                        <td className="py-3 px-4">
+                          <p className="font-medium">
+                            {new Date(w.Date).toLocaleDateString("hu-HU", {
+                              year: "numeric",
+                              month: "2-digit",
+                              day: "2-digit",
+                            })}
+                          </p>
+                          {w.Comment && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {w.Comment}
+                            </p>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <span
+                            className="font-medium"
+                            style={{ 
+                              color: getWellnessBadgeColor("Fatigue", w.Fatigue)
+                            }}
+                          >
+                            {w.Fatigue}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <span
+                            className="font-medium"
+                            style={{ 
+                              color: getWellnessBadgeColor("SleepQuality", w.SleepQuality)
+                            }}
+                          >
+                            {w.SleepQuality}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <span
+                            className="font-medium"
+                            style={{ 
+                              color: getWellnessBadgeColor("MuscleSoreness", w.MuscleSoreness)
+                            }}
+                          >
+                            {w.MuscleSoreness}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <span
+                            className="font-medium"
+                            style={{ 
+                              color: getWellnessBadgeColor("Stress", w.Stress)
+                            }}
+                          >
+                            {w.Stress}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <span
+                            className="font-medium"
+                            style={{ 
+                              color: getWellnessBadgeColor("Mood", w.Mood)
+                            }}
+                          >
+                            {w.Mood}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
-          </CardContent>
+                </CardContent>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </Card>
         </div>
       </div>

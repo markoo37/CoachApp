@@ -18,7 +18,7 @@ export function TimeRangeSelect({ value, onValueChange, className }: TimeRangeSe
   return (
     <Select value={value} onValueChange={(v) => onValueChange(v as TimeRange)}>
       <SelectTrigger
-        className={`w-[160px] rounded-lg sm:ml-auto ${className ?? ""}`}
+        className={`w-[160px] rounded-lg sm:ml-auto focus:ring-0 focus:ring-offset-0 ${className ?? ""}`}
         aria-label="Select time range"
       >
         <SelectValue placeholder="Időszak" />
