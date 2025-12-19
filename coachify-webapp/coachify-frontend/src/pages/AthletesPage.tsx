@@ -1,9 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api/api';
+import TopHeader from '../components/TopHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Loader2, Plus, Users, UserCheck, UserX, Mail, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -24,6 +35,7 @@ export default function AthletesPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [deletingAthleteId, setDeletingAthleteId] = useState<number | null>(null);
+  const [athleteToDelete, setAthleteToDelete] = useState<Athlete | null>(null);
 
   useEffect(() => {
     fetchAthletes();
@@ -69,33 +81,32 @@ export default function AthletesPage() {
     }
   };
 
-  const handleDeleteAthlete = async (athleteId: number) => {
-    if (!window.confirm('Biztosan törlöd a sportolót a saját listádból?')) return;
-    setDeletingAthleteId(athleteId);
+  const handleDeleteAthlete = async () => {
+    if (!athleteToDelete) return;
+    setDeletingAthleteId(athleteToDelete.Id);
     try {
-      await api.delete(`/athletes/remove-from-coach/${athleteId}`);
+      await api.delete(`/athletes/remove-from-coach/${athleteToDelete.Id}`);
       fetchAthletes();
     } catch {
       setError('Nem sikerült törölni.');
     } finally {
       setDeletingAthleteId(null);
+      setAthleteToDelete(null);
     }
   };
 
   return (
-    <div className="min-h-screen bg-background p-8">
-      <div className="max-w-3xl mx-auto">
-
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold">Összes sportolóm</h1>
-            <p className="text-muted-foreground">{athletes.length} sportoló</p>
+    <div className="min-h-screen bg-background lg:pl-64">
+      <TopHeader title="Összes sportolóm" subtitle={`${athletes.length} sportoló`} />
+      
+      <div className="p-8">
+        <div className="max-w-3xl mx-auto">
+          <div className="flex items-center justify-end mb-8">
+            <Button onClick={() => setShowAddForm(true)} size="lg">
+              <Plus className="mr-2 h-5 w-5 stroke-[2.5]" />
+              Új sportoló
+            </Button>
           </div>
-          <Button onClick={() => setShowAddForm(true)} size="lg">
-            <Plus className="mr-2 h-4 w-4" />
-            Új sportoló
-          </Button>
-        </div>
 
         {showAddForm && (
           <Card className="mb-8">
@@ -115,7 +126,7 @@ export default function AthletesPage() {
                 required
               />
               <Button onClick={handleAddAthlete} disabled={isSubmitting}>
-                {isSubmitting ? <Loader2 className="animate-spin w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+                {isSubmitting ? <Loader2 className="animate-spin w-5 h-5 mr-2" /> : <Plus className="w-5 h-5 mr-2 stroke-[2.5]" />}
                 Hozzáadás
               </Button>
               <Button variant="outline" onClick={() => { setShowAddForm(false); setAddEmail(''); }}>
@@ -179,7 +190,7 @@ export default function AthletesPage() {
                     variant="destructive"
                     size="sm"
                     className="mt-3"
-                    onClick={() => handleDeleteAthlete(a.Id)}
+                    onClick={() => setAthleteToDelete(a)}
                     disabled={deletingAthleteId === a.Id}
                   >
                     {deletingAthleteId === a.Id
@@ -194,6 +205,22 @@ export default function AthletesPage() {
             ))}
           </div>
         )}
+      </div>
+
+      <AlertDialog open={!!athleteToDelete} onOpenChange={(open) => !open && setAthleteToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sportoló törlése</AlertDialogTitle>
+            <AlertDialogDescription>
+              Biztosan törlöd a sportolót a saját listádból?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Mégse</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteAthlete}>Törlés</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       </div>
     </div>
   );

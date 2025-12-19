@@ -5,6 +5,7 @@ import { useModals } from '../hooks/useModals';
 import Notification from '../components/ui/Notification';
 import ErrorModal from '../components/ui/ErrorModal';
 import ConfirmationModal from '../components/ui/ConfirmationModal';
+import TopHeader from '../components/TopHeader';
 
 interface CoachStats {
   teamCount: number;
@@ -123,21 +124,11 @@ export default function ProfilePage() {
 
   return (
     <>
-      <div className="min-h-screen bg-background lg:pl-64 px-8 py-16">
-        <div className="max-w-4xl mx-auto">
-          {/* Header */}
-          <div className="text-center mb-12">
-            <div className="relative inline-block w-16 h-16 mb-6">
-              <div className="absolute inset-0 bg-primary rounded-lg"></div>
-              <div className="absolute w-4 h-4 bg-primary-foreground rounded top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"></div>
-            </div>
-            <h1 className="text-3xl font-bold text-foreground mb-2 tracking-tight">
-              Profil
-            </h1>
-            <p className="text-muted-foreground text-base">
-              Fiók kezelése és coaching statisztikák
-            </p>
-          </div>
+      <div className="min-h-screen bg-background lg:pl-64">
+        <TopHeader title="Profil" subtitle="Fiók kezelése és coaching statisztikák" />
+        
+        <div className="px-8 py-16">
+          <div className="max-w-4xl mx-auto">
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Profile Information */}
@@ -314,6 +305,7 @@ export default function ProfilePage() {
                 </div>
               </div>
             </div>
+          </div>
           </div>
         </div>
       </div>

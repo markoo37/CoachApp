@@ -2,7 +2,7 @@
 import * as SecureStore from 'expo-secure-store';
 import { jwtDecode } from 'jwt-decode';
 import { create } from 'zustand';
-import { PlayerAPI } from '../services/api';
+import { AuthAPI, PlayerAPI } from '../services/api';
 
 interface Player {
   Id: number;
@@ -65,14 +65,23 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: async () => {
-    await SecureStore.deleteItemAsync('token');
-    await SecureStore.deleteItemAsync('player');
-    set({
-      token: null,
-      player: null,
-      isAuthenticated: false,
-      expiry: null,
-    });
+    try {
+      // 1) előbb szólj a backendnek (mert még megvan a token → Authorization header megy)
+      await AuthAPI.logout();
+    } catch (e) {
+      // backend logout hibát nem muszáj a userre borítani
+      console.warn("Server logout failed:", e);
+    } finally {
+      // 2) utána töröld lokálisan
+      await SecureStore.deleteItemAsync('token');
+      await SecureStore.deleteItemAsync('player');
+      set({
+        token: null,
+        player: null,
+        isAuthenticated: false,
+        expiry: null,
+      });
+    }
   },
 
   fetchAndUpdateProfile: async () => {

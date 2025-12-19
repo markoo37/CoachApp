@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 32,
     paddingTop: 60,
-    paddingBottom: 32,
+    paddingBottom: 100,
   },
   statusCard: {
     padding: 16,

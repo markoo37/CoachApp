@@ -414,7 +414,7 @@ public class AthletesController : ControllerBase
 
         return Ok(profile);
     }
-
+    
     // GET: api/athletes/my-teams
     [HttpGet("my-teams")]
     public async Task<ActionResult<IEnumerable<TeamInfoDto>>> GetMyTeams()

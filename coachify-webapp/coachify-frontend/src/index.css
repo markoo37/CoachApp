@@ -14,7 +14,6 @@ html, body {
   height: 100%;
   margin: 0;
   padding: 0;
-  background-color: #662E37;
 }
 
 #root {
@@ -33,10 +32,27 @@ html, body {
   fill: var(--primary-foreground);
 }
 
+/* Ensure sharp icon rendering */
+svg {
+  shape-rendering: geometricPrecision;
+  text-rendering: geometricPrecision;
+}
+
+/* Lucide icons - ensure crisp rendering */
+[class*="lucide"] {
+  shape-rendering: geometricPrecision;
+}
+
 /* Custom base styles */
 @layer base {
+
+  html, body {
+    @apply bg-background;
+  }
+
   html {
     font-family: Inter, system-ui, sans-serif;
+    scrollbar-gutter: stable;
   }
   
   body {
@@ -45,6 +61,7 @@ html, body {
     min-height: 100vh;
     margin: 0;
     padding: 0;
+    overflow-y: scroll !important;
   }
   
   :root {
@@ -203,4 +220,19 @@ html, body {
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Radix / RemoveScroll: ne tüntesse el a scrollbar-t */
+html[data-scroll-locked],
+body[data-scroll-locked] {
+  overflow-y: scroll !important;
+}
+
+body[data-scroll-locked] {
+  position: static !important;
+  top: auto !important;
+  left: auto !important;
+  right: auto !important;
+  padding-right: 0 !important;
+  margin-right: 0 !important;
 }

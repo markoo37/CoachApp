@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import api from '../api/api';
+import TopHeader from '../components/TopHeader';
 
 // Shadcn/ui imports
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -52,7 +53,7 @@ interface TodoItem {
 }
 
 export default function Dashboard() {
-  const { firstName, lastName } = useAuthStore();
+  const { firstName } = useAuthStore();
   const [stats, setStats] = useState<DashboardStats>({
     teamCount: 0,
     athleteCount: 0,
@@ -172,73 +173,71 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background lg:pl-64">
-      <div className="px-8 py-16">
+      <TopHeader title="Főoldal" />
+      
+      <div className="px-6 lg:px-8 py-8">
         <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <div className="mb-12">
-            <h1 className="text-3xl font-bold text-foreground mb-2 tracking-tight">
+          {/* Welcome Section */}
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold text-foreground mb-1">
               {getGreeting()}, {firstName || 'Edző'}! 👋
-            </h1>
-            <p className="text-muted-foreground text-lg">
+            </h2>
+            <p className="text-muted-foreground">
               Itt van a mai áttekintésed és a legfontosabb teendők
             </p>
           </div>
 
           {/* Quick Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-            <Card className="hover:shadow-md transition-shadow">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <Card className="hover:shadow-lg transition-all duration-200 border-border/50">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Csapatok</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium text-muted-foreground">Csapatok</CardTitle>
+                <div className="h-8 w-8 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                  <Users className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.teamCount}</div>
-                <p className="text-xs text-green-600 flex items-center mt-1">
-                  <TrendingUp className="w-3 h-3 mr-1" />
-                  Aktív csapatok száma
-                </p>
+                <div className="text-3xl font-bold mb-1">{stats.teamCount}</div>
+                <p className="text-xs text-muted-foreground">Aktív csapatok száma</p>
               </CardContent>
             </Card>
 
-            <Card className="hover:shadow-md transition-shadow">
+            <Card className="hover:shadow-lg transition-all duration-200 border-border/50">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Sportolók</CardTitle>
-                <Target className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium text-muted-foreground">Sportolók</CardTitle>
+                <div className="h-8 w-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                  <Target className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.athleteCount}</div>
-                <p className="text-xs text-blue-600 flex items-center mt-1">
-                  <Activity className="w-3 h-3 mr-1" />
-                  Összes sportoló
-                </p>
+                <div className="text-3xl font-bold mb-1">{stats.athleteCount}</div>
+                <p className="text-xs text-muted-foreground">Összes sportoló</p>
               </CardContent>
             </Card>
 
-            <Card className="hover:shadow-md transition-shadow">
+            <Card className="hover:shadow-lg transition-all duration-200 border-border/50">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">App felhasználók</CardTitle>
-                <Smartphone className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium text-muted-foreground">App felhasználók</CardTitle>
+                <div className="h-8 w-8 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                  <Smartphone className="h-4 w-4 text-green-600 dark:text-green-400" />
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.appUsersCount}</div>
-                <p className="text-xs text-purple-600 flex items-center mt-1">
-                  <CheckCircle2 className="w-3 h-3 mr-1" />
-                  Regisztrált sportolók
-                </p>
+                <div className="text-3xl font-bold mb-1">{stats.appUsersCount}</div>
+                <p className="text-xs text-muted-foreground">Regisztrált sportolók</p>
               </CardContent>
             </Card>
 
-            <Card className="hover:shadow-md transition-shadow">
+            <Card className="hover:shadow-lg transition-all duration-200 border-border/50">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Új csatlakozók</CardTitle>
-                <Star className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium text-muted-foreground">Új csatlakozók</CardTitle>
+                <div className="h-8 w-8 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
+                  <Star className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.recentJoins}</div>
-                <p className="text-xs text-orange-600 flex items-center mt-1">
-                  <TrendingUp className="w-3 h-3 mr-1" />
-                  Ez a héten
-                </p>
+                <div className="text-3xl font-bold mb-1">{stats.recentJoins}</div>
+                <p className="text-xs text-muted-foreground">Ez a héten</p>
               </CardContent>
             </Card>
           </div>

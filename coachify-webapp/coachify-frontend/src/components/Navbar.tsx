@@ -154,15 +154,27 @@ export default function Navbar() {
                     to={item.href}
                     onClick={() => setIsOpen(false)}
                     className={`
-                      flex items-center px-3 py-2 rounded-lg text-base font-medium transition-all duration-200 relative overflow-hidden
+                      relative flex items-center px-3 py-2 rounded-lg text-base font-medium
+                      transition-colors duration-300 ease-in-out overflow-hidden will-change-[background-color,color]
                       ${item.current
                         ? 'bg-primary text-primary-foreground'
-                        : 'text-muted-foreground hover:text-primary-foreground before:absolute before:inset-x-0 before:bottom-0 before:bg-primary before:h-full before:-translate-y-full hover:before:translate-y-0 before:transition-transform before:duration-300 before:-z-10'
+                        : 'text-muted-foreground hover:text-primary-foreground'
                       }
                     `}
                   >
-                    <Icon className="h-5 w-5 mr-3" />
-                    {item.name}
+                    {/* Smooth background animation */}
+                    <div
+                      className={`
+                        absolute inset-0 bg-primary rounded-lg
+                        transition-all duration-300 ease-in-out will-change-transform
+                        ${item.current
+                          ? 'translate-y-0 opacity-100'
+                          : 'translate-y-full opacity-0'
+                        }
+                      `}
+                    />
+                    <Icon className="relative z-10 h-5 w-5 mr-3 transition-colors duration-300 ease-in-out will-change-colors" />
+                    <span className="relative z-10">{item.name}</span>
                   </Link>
                 );
               })}
@@ -174,16 +186,15 @@ export default function Navbar() {
       {/* Desktop sidebar */}
       <div className="hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:w-64 lg:bg-background lg:border-r lg:border-border">
         {/* Logo */}
-        <div className="flex-shrink-0 h-16 px-4 flex items-center justify-between border-b border-border">
+        <div className="flex-shrink-0 h-20 px-6 flex items-center border-b border-border">
           <Link to="/" className="flex items-center">
             <LogoComponent />
             <span className="ml-3 text-xl font-bold text-foreground tracking-tight">DEM</span>
           </Link>
-          <ThemeToggle />
         </div>
 
         {/* Navigation */}
-        <div className="flex-1 px-2 py-4 space-y-1">
+        <div className="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
           {navigation.map((item) => {
             const Icon = item.icon;
             return (
@@ -191,76 +202,42 @@ export default function Navbar() {
                 key={item.name}
                 to={item.href}
                 className={`
-                  flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 relative overflow-hidden
+                  relative flex items-center px-4 py-3 rounded-lg text-sm font-medium
+                  transition-colors duration-300 ease-in-out will-change-[background-color,color]
                   ${item.current
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:text-primary-foreground before:absolute before:inset-x-0 before:bottom-0 before:bg-primary before:h-full before:-translate-y-full hover:before:translate-y-0 before:transition-transform before:duration-300 before:-z-10'
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
                   }
                 `}
               >
-                <Icon className="h-5 w-5 mr-3" />
-                {item.name}
+                {/* Smooth animated border indicator */}
+                <div
+                  className={`
+                    absolute left-0 top-1/2 -translate-y-1/2 h-8 w-1 bg-primary rounded-r-full
+                    transition-all duration-300 ease-in-out origin-center will-change-transform
+                    ${item.current
+                      ? 'opacity-100 scale-y-100'
+                      : 'opacity-0 scale-y-0'
+                    }
+                  `}
+                />
+                <Icon 
+                  className={`
+                    h-5 w-5 mr-3 transition-colors duration-300 ease-in-out will-change-colors
+                    ${item.current ? 'text-primary' : 'text-muted-foreground'}
+                  `} 
+                />
+                <span className="relative z-10">{item.name}</span>
               </Link>
             );
           })}
         </div>
 
-        {/* Profile section */}
+        {/* Upgrade section - optional, can be removed */}
         <div className="flex-shrink-0 border-t border-border p-4">
-          <div className="relative" ref={profileDropdownRef}>
-            <button
-              onClick={() => setIsProfileOpen(!isProfileOpen)}
-              className="w-full flex items-center text-left space-x-3 px-3 py-2 rounded-lg hover:bg-muted transition-colors"
-            >
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-                  <span className="text-xs font-bold text-primary-foreground">
-                    {firstName?.[0]}{lastName?.[0]}
-                  </span>
-                </div>
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-foreground truncate">
-                  {firstName} {lastName}
-                </div>
-                <div className="text-sm text-muted-foreground truncate">
-                  {email}
-                </div>
-              </div>
-            </button>
-
-            <div 
-              className={`absolute bottom-full left-0 mb-2 w-full bg-popover rounded-lg shadow-lg border border-border py-1 transform transition-all duration-200 ease-in-out ${
-                isProfileOpen 
-                  ? 'opacity-100 translate-y-0' 
-                  : 'opacity-0 translate-y-2 pointer-events-none'
-              }`}
-            >
-              <Link
-                to="/profile"
-                className="flex items-center px-4 py-2 text-sm text-popover-foreground hover:bg-muted transition-colors"
-                onClick={() => setIsProfileOpen(false)}
-              >
-                <UserCircleIcon className="h-4 w-4 mr-3" />
-                Profil
-              </Link>
-              <Link
-                to="/settings"
-                className="flex items-center px-4 py-2 text-sm text-popover-foreground hover:bg-muted transition-colors"
-                onClick={() => setIsProfileOpen(false)}
-              >
-                <CogIcon className="h-4 w-4 mr-3" />
-                Beállítások
-              </Link>
-              <div className="border-t border-border my-1"></div>
-              <button
-                onClick={handleLogout}
-                className="flex items-center w-full px-4 py-2 text-sm text-destructive hover:bg-destructive/10 transition-colors"
-              >
-                <ArrowRightOnRectangleIcon className="h-4 w-4 mr-3" />
-                Kijelentkezés
-              </button>
-            </div>
+          <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-lg p-4 text-center">
+            <p className="text-xs font-medium text-foreground mb-2">Upgrade to Premium</p>
+            <ThemeToggle />
           </div>
         </div>
       </div>

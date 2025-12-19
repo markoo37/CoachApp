@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import api from "../api/api";
+import TopHeader from "../components/TopHeader";
 import { getAthleteWellness, WellnessCheck } from "../api/wellness";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,13 +14,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { TimeRangeSelect, TimeRange } from "@/components/TimeRangeSelect";
 import { fetchWellnessIndex } from "../api/wellness";
 import type { WellnessIndex } from "../types/wellnessIndex";
 
@@ -44,7 +39,7 @@ export default function AthleteDetailsPage() {
   const [wellnessLoading, setWellnessLoading] = useState(false);
   const [wellnessIndexLoading, setWellnessIndexLoading] = useState(false);
   const [days, setDays] = useState(7);
-  const [timeRange, setTimeRange] = useState<"7d" | "30d" | "90d">("30d");
+  const [timeRange, setTimeRange] = useState<TimeRange>("30d");
   const [error, setError] = useState<string | null>(null);
 
   // Load athlete data only once
@@ -257,7 +252,7 @@ export default function AthleteDetailsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background p-8 flex items-center justify-center">
+      <div className="min-h-screen bg-background lg:pl-64 flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
@@ -265,27 +260,33 @@ export default function AthleteDetailsPage() {
 
   if (error || !athlete) {
     return (
-      <div className="min-h-screen bg-background p-8 max-w-3xl mx-auto">
-        <Button asChild variant="outline" className="mb-4">
-          <Link to="/athletes">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Vissza a sportolókhoz
-          </Link>
-        </Button>
-        <p className="text-destructive">{error || "A sportoló nem található."}</p>
+      <div className="min-h-screen bg-background lg:pl-64">
+        <TopHeader title="Sportoló részletei" />
+        <div className="p-8 max-w-3xl mx-auto">
+          <Button asChild variant="outline" className="mb-4">
+            <Link to="/athletes">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Vissza a sportolókhoz
+            </Link>
+          </Button>
+          <p className="text-destructive">{error || "A sportoló nem található."}</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background p-8">
-      <div className="max-w-4xl mx-auto space-y-6">
-        <Button asChild variant="outline">
-          <Link to="/athletes">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Vissza a sportolókhoz
-          </Link>
-        </Button>
+    <div className="min-h-screen bg-background lg:pl-64">
+      <TopHeader title={fullName} subtitle={athlete.email} />
+      
+      <div className="p-8">
+        <div className="max-w-4xl mx-auto space-y-6">
+          <Button asChild variant="outline">
+            <Link to="/athletes">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Vissza a sportolókhoz
+            </Link>
+          </Button>
 
         {/* Alapadatok kártya */}
         <Card>
@@ -406,25 +407,7 @@ export default function AthleteDetailsPage() {
                 Wellness index változása az idő múlásával
               </CardDescription>
             </div>
-            <Select value={timeRange} onValueChange={(value: "7d" | "30d" | "90d") => setTimeRange(value)}>
-              <SelectTrigger
-                className="w-[160px] rounded-lg sm:ml-auto"
-                aria-label="Select time range"
-              >
-                <SelectValue placeholder="Időszak" />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl">
-                <SelectItem value="7d" className="rounded-lg">
-                  Utolsó 7 nap
-                </SelectItem>
-                <SelectItem value="30d" className="rounded-lg">
-                  Utolsó 30 nap
-                </SelectItem>
-                <SelectItem value="90d" className="rounded-lg">
-                  Utolsó 90 nap
-                </SelectItem>
-              </SelectContent>
-            </Select>
+            <TimeRangeSelect value={timeRange} onValueChange={setTimeRange} />
           </CardHeader>
           <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
             {filteredWellnessIndexData.length === 0 && !wellnessIndexLoading ? (
@@ -596,6 +579,7 @@ export default function AthleteDetailsPage() {
             )}
           </CardContent>
         </Card>
+        </div>
       </div>
     </div>
   );

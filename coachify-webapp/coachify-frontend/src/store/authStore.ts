@@ -85,11 +85,7 @@ export const useAuthStore = create<AuthState>()(
       }),
       // Token érvényesség ellenőrzése
       onRehydrateStorage: () => (state) => {
-        if (state?.token && state?.expiry) {
-          if (state.expiry < Date.now()) {
-            state.logout();
-          }
-        }
+        
       }
     }
   )

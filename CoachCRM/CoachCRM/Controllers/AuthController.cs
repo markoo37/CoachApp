@@ -10,6 +10,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.Extensions.Logging;
 
 namespace CoachCRM.Controllers
 {
@@ -19,11 +20,13 @@ namespace CoachCRM.Controllers
     {
         private readonly AppDbContext _context;
         private readonly IConfiguration _config;
+        private readonly ILogger<AuthController> _logger;
 
-        public AuthController(AppDbContext context, IConfiguration config)
+        public AuthController(AppDbContext context, IConfiguration config, ILogger<AuthController> logger)
         {
             _context = context;
             _config = config;
+            _logger = logger;
         }
 
         // COACH REGISTRATION
@@ -178,8 +181,15 @@ namespace CoachCRM.Controllers
                 .FirstOrDefaultAsync(u => u.Email.ToLower() == email);
 
             if (user == null || !VerifyPasswordHash(dto.Password, user.PasswordHash, user.PasswordSalt))
+            {
+                _logger.LogWarning(
+                    "Failed coach login email={Email} ip={IP}",
+                    email,
+                    HttpContext.Connection.RemoteIpAddress?.ToString()
+                );
                 return Unauthorized("Invalid credentials");
-
+            }
+            
             string token = CreateCoachToken(user);
 
             var refreshToken = GenerateRefreshToken();
@@ -257,31 +267,54 @@ namespace CoachCRM.Controllers
         }
 
         // REFRESH TOKEN
+        [AllowAnonymous]
         [HttpPost("refresh")]
         public async Task<IActionResult> Refresh()
         {
+            Console.WriteLine("REFRESH cookie present: " + Request.Cookies.ContainsKey("refreshToken"));
             if (!Request.Cookies.TryGetValue("refreshToken", out var rtValue))
-                return Unauthorized("No refresh token");
+                return Unauthorized();
 
-            var rt = await _context.RefreshTokens.FirstOrDefaultAsync(x => x.Token == rtValue);
-            if (rt == null || rt.IsExpired || rt.IsRevoked)
-                return Unauthorized("Invalid refresh token");
+            var oldRt = await _context.RefreshTokens
+                .FirstOrDefaultAsync(x => x.Token == rtValue);
 
-            var baseUser = await _context.Users.FirstOrDefaultAsync(u => u.Id == rt.UserId);
-            if (baseUser == null)
-                return Unauthorized("User not found");
+            if (oldRt == null || oldRt.IsExpired || oldRt.IsRevoked)
+                return Unauthorized();
 
-            string newToken = baseUser switch
+            // 🔥 régi refresh token revoke
+            oldRt.Revoked = DateTime.UtcNow;
+
+            // 🆕 új refresh token
+            var newRt = GenerateRefreshToken();
+            newRt.UserId = oldRt.UserId;
+            _context.RefreshTokens.Add(newRt);
+
+            // új JWT
+            var baseUser = await _context.Users.FindAsync(oldRt.UserId);
+
+            string newJwt = baseUser switch
             {
                 CoachUser cu  => CreateCoachToken(await LoadCoachUserAsync(cu.Id)),
                 PlayerUser pu => CreatePlayerToken(await LoadPlayerUserAsync(pu.Id)),
-                _             => throw new InvalidOperationException("Unknown user type")
+                _ => throw new InvalidOperationException()
             };
 
-            return Ok(new { token = newToken });
+            await _context.SaveChangesAsync();
+
+            // 🍪 cookie csere
+            Response.Cookies.Append("refreshToken", newRt.Token, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.None,
+                Expires = newRt.Expires
+            });
+
+            return Ok(new { token = newJwt });
         }
 
         // LOGOUT
+        [AllowAnonymous]
         [HttpPost("logout")]
         public async Task<IActionResult> Logout()
         {
@@ -367,7 +400,7 @@ namespace CoachCRM.Controllers
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(claims),
-                Expires = DateTime.UtcNow.AddHours(12),
+                Expires = DateTime.UtcNow.AddMinutes(10),
                 SigningCredentials = creds
             };
             var handler = new JwtSecurityTokenHandler();

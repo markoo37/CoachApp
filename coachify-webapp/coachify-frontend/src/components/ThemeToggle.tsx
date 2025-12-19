@@ -1,12 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from './ui/button';
-import "@theme-toggles/react/css/Around.css";
-import { Around } from "@theme-toggles/react";
+import { Moon, Sun } from 'lucide-react';
 
 type Theme = 'dark' | 'light';
 
 export default function ThemeToggle() {
   const [theme, setTheme] = useState<Theme>('light');
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     // Betöltéskor ellenőrizzük a tárolt témát
@@ -18,6 +18,7 @@ export default function ThemeToggle() {
       // Ha nincs tárolt téma, használjuk a világos témát
       applyTheme('light');
     }
+    setMounted(true);
   }, []);
 
   const applyTheme = (newTheme: Theme) => {
@@ -46,18 +47,41 @@ export default function ThemeToggle() {
     return theme === 'dark' ? 'Sötét' : 'Világos';
   };
 
+  // Prevent hydration mismatch
+  if (!mounted) {
+    return (
+      <Button 
+        variant="ghost" 
+        size="icon" 
+        className="h-9 w-9"
+        disabled
+      >
+        <Sun className="h-4 w-4" />
+        <span className="sr-only">Téma váltása</span>
+      </Button>
+    );
+  }
+
   return (
     <Button 
       variant="ghost" 
       size="icon" 
-      className="h-9 w-9"
+      className="h-9 w-9 relative"
       onClick={toggleTheme}
     >
-      <Around 
-        duration={750} 
-        toggled={theme === 'dark'}
-        className="h-4 w-4"
-        {...{} as any}
+      <Sun 
+        className={`h-4 w-4 absolute transition-all duration-300 ease-in-out ${
+          theme === 'dark' 
+            ? 'rotate-90 scale-0 opacity-0' 
+            : 'rotate-0 scale-100 opacity-100'
+        }`}
+      />
+      <Moon 
+        className={`h-4 w-4 absolute transition-all duration-300 ease-in-out ${
+          theme === 'dark' 
+            ? 'rotate-0 scale-100 opacity-100' 
+            : '-rotate-90 scale-0 opacity-0'
+        }`}
       />
       <span className="sr-only">Téma váltása - {getThemeText()}</span>
     </Button>

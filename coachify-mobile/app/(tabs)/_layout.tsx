@@ -2,6 +2,7 @@
 import { Redirect, Tabs } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuthStore } from '../../src/stores/authStore';
+import CustomTabBar from '../../src/components/CustomTabBar';
 
 export default function TabLayout() {
   const { isAuthenticated } = useAuthStore();
@@ -13,21 +14,8 @@ export default function TabLayout() {
 
   return (
     <Tabs
+      tabBar={(props) => <CustomTabBar {...props} />}
       screenOptions={{
-        tabBarActiveTintColor: '#3B82F6',
-        tabBarInactiveTintColor: '#6B7280',
-        tabBarStyle: {
-          backgroundColor: 'white',
-          borderTopWidth: 1,
-          borderTopColor: '#E5E7EB',
-          height: 90,
-          paddingBottom: 30,
-          paddingTop: 10,
-        },
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '600',
-        },
         headerShown: false,
       }}
     >

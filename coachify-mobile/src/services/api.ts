@@ -3,7 +3,7 @@ import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import { CheckEmailRequest, CheckEmailResponse, LoginRequest, PlayerLoginResponse, RegisterPlayerRequest } from '../types/auth';
 import { useAuthStore } from "../stores/authStore";
-
+import { jwtDecode } from 'jwt-decode';
 
 const API_BASE_URL = 'https://palankeeningly-unforeshortened-delicia.ngrok-free.dev/api';
 
@@ -14,29 +14,67 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true,
 });
+
+let isRefreshing = false;
+let refreshPromise: Promise<string> | null = null;
+
+async function refreshAccessToken(): Promise<string> {
+  console.log("🔁 Refreshing token...");
+  const res = await api.post("/auth/refresh", {}); // cookie megy (withCredentials)
+
+  const newToken = res.data.token as string;
+  if (!newToken) throw new Error("No token returned from refresh");
+
+  await SecureStore.setItemAsync("token", newToken);
+  console.log("✅ Token refreshed & stored");
+
+  // opcionális: store frissítés
+  try {
+    await useAuthStore.getState().checkAuth?.();
+  } catch {}
+
+  return newToken;
+}
+
 
 // Request interceptor - token hozzáadása
 api.interceptors.request.use(
   async (config) => {
-    // Get token from secure storage and add to headers
+    const url = config.url ?? "";
+
+    const skipAuthHeader =
+      url.includes("/auth/login") ||
+      url.includes("/auth/login-player") ||
+      url.includes("/auth/check-email") ||
+      url.includes("/auth/register") ||
+      url.includes("/auth/register-player") ||
+      url.includes("/auth/refresh") ||
+      url.includes("/auth/logout");
+
     try {
-      const token = await SecureStore.getItemAsync('token');
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
+      if (!skipAuthHeader) {
+        const token = await SecureStore.getItemAsync("token");
+        if (token) {
+          const { exp } = jwtDecode<{ exp: number }>(token);
+          console.log("🕒 access exp:", new Date(exp * 1000).toISOString());
+          config.headers.Authorization = `Bearer ${token}`;
+        }
       }
     } catch (error) {
-      console.error('Error getting token:', error);
+      console.error("Error getting token:", error);
     }
 
     console.log(`🌐 API Request: ${config.method?.toUpperCase()} ${config.url}`);
     return config;
   },
   (error) => {
-    console.error('❌ API Request Error:', error);
+    console.error("❌ API Request Error:", error);
     return Promise.reject(error);
   }
 );
+
 
 // Response interceptor - error handling
 api.interceptors.response.use(
@@ -44,55 +82,103 @@ api.interceptors.response.use(
     console.log(`✅ API Response: ${response.status} ${response.config.url}`);
     return response;
   },
-  (error) => {
-    console.error("❌ API Response Error:", error.response?.data || error.message);
-
+  async (error) => {
     const status = error.response?.status;
-    const url = error.config?.url || "";
+    const url = error.config?.url ?? "";
+    const originalRequest: any = error.config;
 
-    // 1️⃣ 401 - külön login / minden más
+    // --- AUTH endpointok listája (ezekre nem refresh-elünk) ---
+    const isAuthRequest =
+      url.includes("/auth/login") ||
+      url.includes("/auth/login-player") ||
+      url.includes("/auth/check-email") ||
+      url.includes("/auth/register") ||
+      url.includes("/auth/register-player") ||
+      url.includes("/auth/refresh") ||
+      url.includes("/auth/logout");
+
+    // 401 kezelés
     if (status === 401) {
-      const isAuthRequest =
-        url.includes("/auth/login") ||
-        url.includes("/auth/check-email") ||
-        url.includes("/auth/register");
-
-      if (isAuthRequest) {
-        // tényleges belépési hiba
+      // Login hibák külön üzenet
+      if (url.includes("/auth/login") || url.includes("/auth/login-player")) {
+        console.warn("⚠️ Login 401:", url);
         throw new Error("Hibás email vagy jelszó");
       }
 
-      // minden más endpointnál: valószínűleg lejárt a token → logout
-      const authStore = useAuthStore.getState();
-      authStore.logout?.(); // ha van ilyen metódusod a store-ban
+      // Ha auth endpoint 401: nincs refresh, csak dobjuk tovább
+      if (isAuthRequest) {
+        console.warn("⚠️ Auth endpoint 401:", url);
+        throw new Error("Unauthorized");
+      }
 
-      throw new Error("A munkamenet lejárt. Kérlek jelentkezz be újra.");
+      // Ne legyen végtelen retry
+      if (originalRequest._retry) {
+        console.warn("⚠️ Request already retried, logging out:", url);
+        await useAuthStore.getState().logout?.();
+        throw new Error("A munkamenet lejárt. Kérlek jelentkezz be újra.");
+      }
+      originalRequest._retry = true;
+
+      try {
+        // lock: egy refresh egyszerre
+        if (!isRefreshing) {
+          isRefreshing = true;
+          refreshPromise = refreshAccessToken();
+        }
+
+        const newToken = await refreshPromise!;
+        isRefreshing = false;
+        refreshPromise = null;
+
+        // retry eredeti request
+        originalRequest.headers = originalRequest.headers || {};
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+
+        console.log("🔄 Retrying original request:", originalRequest.url);
+        return api.request(originalRequest);
+      } catch (refreshErr) {
+        // refresh fail → logout
+        isRefreshing = false;
+        refreshPromise = null;
+
+        console.warn("⚠️ Refresh failed, logging out");
+        await useAuthStore.getState().logout?.();
+
+        throw new Error("A munkamenet lejárt. Kérlek jelentkezz be újra.");
+      }
     }
 
-    // 2️⃣ 403 - jogosultság hiba
+    // 403
     if (status === 403) {
+      console.warn("⚠️ 403 Forbidden:", url);
       throw new Error("Nincs jogosultságod ehhez a művelethez");
     }
 
-    // 3️⃣ 5xx - szerver hiba
+    // 5xx
     if (status && status >= 500) {
+      console.error("❌ Server error:", status, url, error.response?.data);
       throw new Error("Szerver hiba. Próbáld újra később.");
     }
 
-    // 4️⃣ hálózati hibák
-    if (error.code === "NETWORK_ERROR" || error.message.includes("Network Error")) {
+    // Network error
+    if (error.code === "NETWORK_ERROR" || `${error.message}`.includes("Network Error")) {
+      console.warn("⚠️ Network error:", url);
       throw new Error("Hálózati hiba. Ellenőrizd az internet kapcsolatot.");
     }
 
-    // 5️⃣ fallback - ha a backend adott 'message' mezőt, azt használjuk
+    // Backend message fallback
     const backendMessage = error.response?.data?.message;
     if (backendMessage) {
+      console.warn("⚠️ Backend error message:", backendMessage);
       throw new Error(backendMessage);
     }
 
+    // Default
+    console.error("❌ Unknown API error:", url, error.message);
     throw new Error("Ismeretlen hiba történt");
   }
 );
+
 
 
 // Types for player endpoints

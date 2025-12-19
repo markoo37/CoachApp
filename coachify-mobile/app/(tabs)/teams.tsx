@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Header, LogoutButton } from '../../src/components';
+import { Header } from '../../src/components';
 import { useAuthStore } from '../../src/stores/authStore';
 import { lightColors } from '../../src/styles/colors';
 
@@ -128,8 +128,6 @@ export default function TeamsScreen() {
               A csapatok funkció hamarosan elérhető lesz
             </Text>
           </View>
-
-          <LogoutButton onLogout={logout} />
         </ScrollView>
       </SafeAreaView>
     );
@@ -209,9 +207,6 @@ export default function TeamsScreen() {
             </View>
           )}
         </View>
-
-        {/* Logout Button */}
-        <LogoutButton onLogout={logout} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -225,7 +220,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 24,
     paddingTop: 60,
-    paddingBottom: 32,
+    paddingBottom: 100,
   },
   sectionContainer: {
     marginBottom: 40,

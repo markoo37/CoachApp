@@ -20,22 +20,6 @@ function AppContent() {
   const token = useAuthStore(state => state.token);
   const location = useLocation();
 
-  useEffect(() => {
-    if (expiry) {
-      const timeout = expiry - Date.now();
-      if (timeout > 0) {
-        const timer = setTimeout(() => {
-          logout();
-          window.location.href = '/login';
-        }, timeout);
-        return () => clearTimeout(timer);
-      } else {
-        logout();
-        window.location.href = '/login';
-      }
-    }
-  }, [expiry, logout]);
-
   // Hide Navbar on landing, login, and register pages
   const showNavbar = (location.pathname !== '/' && location.pathname !== '/login' && location.pathname !== '/register');
   

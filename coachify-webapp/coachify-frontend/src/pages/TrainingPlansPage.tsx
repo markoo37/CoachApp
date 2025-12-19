@@ -3,7 +3,17 @@ import api from '../api/api';
 import { useModals } from '../hooks/useModals';
 import Notification from '../components/ui/Notification';
 import ErrorModal from '../components/ui/ErrorModal';
-import ConfirmationModal from '../components/ui/ConfirmationModal';
+import TopHeader from '../components/TopHeader';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Shadcn/ui imports
@@ -80,6 +90,12 @@ export default function TrainingPlansPage() {
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [athleteComboboxOpen, setAthleteComboboxOpen] = useState(false);
   const [teamComboboxOpen, setTeamComboboxOpen] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({ open: false, title: '', message: '', onConfirm: () => {} });
 
   // form state
   const [formData, setFormData] = useState<FormDataState>({
@@ -98,15 +114,12 @@ export default function TrainingPlansPage() {
   const [teamsList, setTeamsList] = useState<TeamOption[]>([]);
 
   const {
-    confirmModal,
     errorModal,
     notification,
     showNotification,
     hideNotification,
     showError,
     hideError,
-    showConfirmation,
-    hideConfirmation,
   } = useModals();
 
   useEffect(() => {
@@ -182,11 +195,13 @@ export default function TrainingPlansPage() {
   };
 
   const handleDeletePlan = (planId: number, planName: string) => {
-    showConfirmation(
-      'Edzésterv törlése', 
-      `Biztos törlöd ezt az edzéstervet: "${planName}"?`, 
-      async () => {
+    setConfirmDialog({
+      open: true,
+      title: 'Edzésterv törlése',
+      message: `Biztos törlöd ezt az edzéstervet: "${planName}"?`,
+      onConfirm: async () => {
         setDeletingPlanId(planId);
+        setConfirmDialog(prev => ({ ...prev, open: false }));
         try {
           await api.delete(`/trainingplans/${planId}`);
           await fetchPlans();
@@ -196,8 +211,8 @@ export default function TrainingPlansPage() {
         } finally {
           setDeletingPlanId(null);
         }
-      }
-    );
+      },
+    });
   };
 
   const cancelAddPlan = () => {
@@ -218,21 +233,10 @@ export default function TrainingPlansPage() {
   return (
     <>
       <div className="min-h-screen bg-background lg:pl-64">
+        <TopHeader title="Edzéstervek" subtitle="Edzéstervek kezelése és hozzárendelése" />
+        
         <div className="px-8 py-16">
           <div className="max-w-4xl mx-auto">
-            {/* Header */}
-            <div className="text-center mb-12">
-              <div className="relative inline-flex items-center justify-center w-16 h-16 mb-6">
-                <div className="absolute inset-0 bg-primary rounded-lg"></div>
-                <CalendarDays className="h-8 w-8 text-primary-foreground relative z-10" />
-              </div>
-              <h1 className="text-3xl font-bold text-foreground mb-2 tracking-tight">
-                Edzéstervek
-              </h1>
-              <p className="text-muted-foreground text-base">
-                Edzéstervek kezelése és hozzárendelése
-              </p>
-            </div>
 
             {/* Add Plan Button */}
             <div className="flex justify-end mb-8">
@@ -241,7 +245,7 @@ export default function TrainingPlansPage() {
                 size="lg"
                 className="shadow-lg hover:shadow-xl transition-all duration-200"
               >
-                <Plus className="mr-2 h-4 w-4" />
+                <Plus className="mr-2 h-5 w-5 stroke-[2.5]" />
                 Új edzésterv
               </Button>
             </div>
@@ -259,7 +263,7 @@ export default function TrainingPlansPage() {
                   <Card className="shadow-md">
                     <CardHeader>
                       <CardTitle className="flex items-center">
-                        <Plus className="mr-2 h-5 w-5" />
+                        <Plus className="mr-2 h-5 w-5 stroke-[2.5]" />
                         Új edzésterv létrehozása
                       </CardTitle>
                     </CardHeader>
@@ -531,7 +535,7 @@ export default function TrainingPlansPage() {
                       Kezdj az első edzésterv létrehozásával.
                     </p>
                     <Button onClick={() => setShowAddForm(true)} size="lg">
-                      <Plus className="mr-2 h-4 w-4" />
+                      <Plus className="mr-2 h-5 w-5 stroke-[2.5]" />
                       Első edzésterv létrehozása
                     </Button>
                   </div>
@@ -615,20 +619,18 @@ export default function TrainingPlansPage() {
       </div>
 
       {/* Modals & Notifications */}
-      <ConfirmationModal
-        isOpen={confirmModal.isOpen}
-        title={confirmModal.title}
-        message={confirmModal.message}
-        confirmText="Törlés"
-        cancelText="Mégse"
-        onConfirm={() => {
-          confirmModal.onConfirm();
-          hideConfirmation();
-        }}
-        onCancel={hideConfirmation}
-        isLoading={deletingPlanId !== null}
-        type={confirmModal.type}
-      />
+      <AlertDialog open={confirmDialog.open} onOpenChange={(open) => !open && setConfirmDialog(prev => ({ ...prev, open: false }))}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmDialog.title}</AlertDialogTitle>
+            <AlertDialogDescription>{confirmDialog.message}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Mégse</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDialog.onConfirm}>Törlés</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <ErrorModal
         isOpen={errorModal.isOpen}

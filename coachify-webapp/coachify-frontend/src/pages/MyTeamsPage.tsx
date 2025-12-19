@@ -2,7 +2,17 @@ import React, { useEffect, useState } from 'react';
 import api from '../api/api';
 import { useModals } from '../hooks/useModals';
 import ErrorModal from '../components/ui/ErrorModal';
-import ConfirmationModal from '../components/ui/ConfirmationModal';
+import TopHeader from '../components/TopHeader';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from "../components/ui/button";
 import { Card, CardHeader, CardContent, CardFooter } from "../components/ui/card";
@@ -78,14 +88,17 @@ export default function MyTeamsPage() {
   const [isAddingTeam, setIsAddingTeam] = useState(false);
   const [loadingAvailableAthletes, setLoadingAvailableAthletes] = useState(false);
   const [comboboxOpen, setComboboxOpen] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({ open: false, title: '', message: '', onConfirm: () => {} });
 
   const { toast } = useToast();
   const {
-    confirmModal,
     errorModal,
     hideError,
-    showConfirmation,
-    hideConfirmation,
     showError,
   } = useModals();
 
@@ -210,32 +223,38 @@ export default function MyTeamsPage() {
   };
 
   const handleDeletePlayer = (athleteId: number, teamId: number, name: string) => {
-    showConfirmation('Sportoló eltávolítása', `Biztos eltávolítod a csapatból: ${name}?`, async () => {
-      setDeletingAthleteId(athleteId);
-      try {
-        await api.post(`/athletes/${athleteId}/remove-from-team/${teamId}`);
+    setConfirmDialog({
+      open: true,
+      title: 'Sportoló eltávolítása',
+      message: `Biztos eltávolítod a csapatból: ${name}?`,
+      onConfirm: async () => {
+        setDeletingAthleteId(athleteId);
+        setConfirmDialog(prev => ({ ...prev, open: false }));
+        try {
+          await api.post(`/athletes/${athleteId}/remove-from-team/${teamId}`);
 
-        setTeams(prev =>
-          prev.map(team =>
-            team.Id === teamId
-              ? {
-                  ...team,
-                  Athletes: team.Athletes.filter(athlete => athlete.Id !== athleteId)
-                }
-              : team
-          )
-        );
+          setTeams(prev =>
+            prev.map(team =>
+              team.Id === teamId
+                ? {
+                    ...team,
+                    Athletes: team.Athletes.filter(athlete => athlete.Id !== athleteId)
+                  }
+                : team
+            )
+          );
 
-        showNotification('Eltávolítva a csapatból', 'success');
-      } catch (error: any) {
-        const message =
-          error?.response?.data?.message ||
-          error?.response?.data ||
-          'Nem sikerült eltávolítani. Próbáld újra!';
-        showError('Hiba', message);
-      } finally {
-        setDeletingAthleteId(null);
-      }
+          showNotification('Eltávolítva a csapatból', 'success');
+        } catch (error: any) {
+          const message =
+            error?.response?.data?.message ||
+            error?.response?.data ||
+            'Nem sikerült eltávolítani. Próbáld újra!';
+          showError('Hiba', message);
+        } finally {
+          setDeletingAthleteId(null);
+        }
+      },
     });
   };
 
@@ -259,18 +278,24 @@ export default function MyTeamsPage() {
   };
 
   const handleDeleteTeam = (teamId: number, name: string) => {
-    showConfirmation('Csapat törlése', `Biztos törlöd: \"${name}\"?`, async () => {
-      setDeletingTeamId(teamId);
-      try {
-        await api.delete(`/teams/${teamId}`);
-        await fetchTeams();
-        if (expandedTeamId === teamId) setExpandedTeamId(null);
-        showNotification('Csapat törölve', 'success');
-      } catch {
-        showError('Hiba', 'Nem sikerült törölni. Próbáld újra!');
-      } finally {
-        setDeletingTeamId(null);
-      }
+    setConfirmDialog({
+      open: true,
+      title: 'Csapat törlése',
+      message: `Biztos törlöd: "${name}"?`,
+      onConfirm: async () => {
+        setDeletingTeamId(teamId);
+        setConfirmDialog(prev => ({ ...prev, open: false }));
+        try {
+          await api.delete(`/teams/${teamId}`);
+          await fetchTeams();
+          if (expandedTeamId === teamId) setExpandedTeamId(null);
+          showNotification('Csapat törölve', 'success');
+        } catch {
+          showError('Hiba', 'Nem sikerült törölni. Próbáld újra!');
+        } finally {
+          setDeletingTeamId(null);
+        }
+      },
     });
   };
 
@@ -282,22 +307,10 @@ export default function MyTeamsPage() {
   return (
     <>
       <div className="min-h-screen bg-background lg:pl-64">
+        <TopHeader title="Csapataim" subtitle="Csapatok és sportolók kezelése" />
+        
         <div className="px-8 py-16">
           <div className="max-w-4xl mx-auto">
-            {/* Header */}
-            <div className="text-center mb-8">
-              <div className="flex justify-center mb-4">
-                <div className="flex items-center justify-center w-16 h-16 bg-primary rounded-xl">
-                  <Users className="w-8 h-8 text-primary-foreground" />
-                </div>
-              </div>
-              <h1 className="text-3xl font-bold text-foreground mb-2">
-                Csapataim
-              </h1>
-              <p className="text-muted-foreground">
-                Csapatok és sportolók kezelése
-              </p>
-            </div>
 
             {/* Add Team Button */}
             <div className="flex justify-end mb-6">
@@ -306,7 +319,7 @@ export default function MyTeamsPage() {
                 size="lg"
                 className="gap-2 shadow-lg hover:shadow-xl transition-all duration-200"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-5 h-5 stroke-[2.5]" />
                 Új csapat
               </Button>
             </div>
@@ -408,7 +421,7 @@ export default function MyTeamsPage() {
                               size="sm"
                               className="gap-2"
                             >
-                              <UserPlus className="w-4 h-4" />
+                              <UserPlus className="w-5 h-5 stroke-[2.5]" />
                               Sportoló hozzáadása
                             </Button>
                           </div>
@@ -727,7 +740,7 @@ export default function MyTeamsPage() {
                     Hozd létre az első csapatodat és kezdj el dolgozni!
                   </p>
                   <Button onClick={() => setShowAddTeamForm(true)} size="lg">
-                    <Plus className="w-4 h-4 mr-2" />
+                    <Plus className="w-5 h-5 mr-2 stroke-[2.5]" />
                     Első csapat létrehozása
                   </Button>
                 </CardContent>
@@ -737,20 +750,18 @@ export default function MyTeamsPage() {
         </div>
       </div>
 
-      <ConfirmationModal
-        isOpen={confirmModal.isOpen}
-        title={confirmModal.title}
-        message={confirmModal.message}
-        confirmText="Igen"
-        cancelText="Mégse"
-        onConfirm={() => {
-          confirmModal.onConfirm();
-          hideConfirmation();
-        }}
-        onCancel={hideConfirmation}
-        isLoading={deletingAthleteId !== null || deletingTeamId !== null}
-        type={confirmModal.type}
-      />
+      <AlertDialog open={confirmDialog.open} onOpenChange={(open) => !open && setConfirmDialog(prev => ({ ...prev, open: false }))}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmDialog.title}</AlertDialogTitle>
+            <AlertDialogDescription>{confirmDialog.message}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Mégse</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDialog.onConfirm}>Igen</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <ErrorModal
         isOpen={errorModal.isOpen}
