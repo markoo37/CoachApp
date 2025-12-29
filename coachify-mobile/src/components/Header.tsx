@@ -1,63 +1,66 @@
 // src/components/Header.tsx
+import { MaterialIcons } from '@expo/vector-icons';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { lightColors } from '../styles/colors';
+import { StyleSheet, Text, useColorScheme, View } from 'react-native';
+import { darkColors, lightColors } from '../styles/colors';
 
 interface HeaderProps {
   title: string;
   subtitle?: string;
+  showNotification?: boolean;
 }
 
-export function Header({ title, subtitle }: HeaderProps) {
+export function Header({ title, subtitle, showNotification }: HeaderProps) {
+  const colorScheme = useColorScheme();
+  const colors = colorScheme === 'dark' ? darkColors : lightColors;
+
   return (
     <View style={styles.headerContainer}>
-      <View style={styles.iconContainer}>
-        <View style={styles.iconSquare} />
-        <View style={[styles.iconSquare, styles.iconSquareSmall]} />
+      <View style={styles.headerTop}>
+        <View>
+          <Text style={[styles.greeting, { color: colors.mutedForeground }]}>Üdv,</Text>
+          <Text style={[styles.title, { color: colors.foreground }]}>{title}</Text>
+        </View>
+        {showNotification && (
+          <View style={styles.notificationIcon}>
+            <MaterialIcons name="notifications-none" size={24} color={colors.foreground} />
+          </View>
+        )}
       </View>
-      <Text style={styles.title}>{title}</Text>
-      {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+      {subtitle && (
+        <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>{subtitle}</Text>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   headerContainer: {
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  iconContainer: {
-    position: 'relative',
-    width: 64,
-    height: 64,
     marginBottom: 24,
   },
-  iconSquare: {
-    position: 'absolute',
-    width: 64,
-    height: 64,
-    borderRadius: 12,
-    backgroundColor: lightColors.primary,
-  },
-  iconSquareSmall: {
-    width: 16,
-    height: 16,
-    borderRadius: 4,
-    backgroundColor: lightColors.primaryForeground,
-    top: 24,
-    left: 24,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: lightColors.foreground,
-    letterSpacing: -0.5,
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginBottom: 8,
   },
-  subtitle: {
+  greeting: {
     fontSize: 16,
-    color: lightColors.mutedForeground,
     fontWeight: '400',
+    marginBottom: 4,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    fontSize: 15,
+    fontWeight: '400',
+    marginTop: 4,
+  },
+  notificationIcon: {
+    padding: 4,
   },
 });
 

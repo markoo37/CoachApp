@@ -1,0 +1,89 @@
+/* Coachify theme overrides for FullCalendar.
+   Scope everything under .coachify-calendar so it doesn't affect other FC instances. */
+
+.coachify-calendar .fc {
+  --fc-page-bg-color: transparent;
+  --fc-border-color: rgb(var(--border) / 0.65);
+  --fc-neutral-bg-color: rgb(var(--muted) / 0.5);
+  --fc-neutral-text-color: rgb(var(--muted-foreground));
+  --fc-today-bg-color: rgb(var(--primary) / 0.08);
+  --fc-now-indicator-color: rgb(var(--primary));
+
+  --fc-event-bg-color: rgb(var(--primary) / 0.22);
+  --fc-event-border-color: rgb(var(--primary) / 0.3);
+  --fc-event-text-color: rgb(var(--foreground));
+
+  font-family: inherit;
+}
+
+.dark .coachify-calendar .fc {
+  --fc-border-color: rgb(var(--border) / 0.75);
+  --fc-neutral-bg-color: rgb(var(--muted) / 0.7);
+  --fc-today-bg-color: rgb(var(--primary) / 0.12);
+
+  --fc-event-bg-color: rgb(var(--primary) / 0.28);
+  --fc-event-border-color: rgb(var(--primary) / 0.35);
+  --fc-event-text-color: rgb(var(--primary-foreground));
+}
+
+/* Remove the built-in toolbar since we provide our own header */
+.coachify-calendar .fc .fc-header-toolbar {
+  display: none;
+}
+
+/* Grid + headers */
+.coachify-calendar .fc .fc-scrollgrid,
+.coachify-calendar .fc .fc-scrollgrid td,
+.coachify-calendar .fc .fc-scrollgrid th {
+  border-color: rgb(var(--border) / 0.6);
+}
+
+.coachify-calendar .fc .fc-col-header-cell {
+  background: rgb(var(--background));
+}
+
+.coachify-calendar .fc .fc-col-header-cell-cushion {
+  padding: 10px 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgb(var(--muted-foreground));
+}
+
+/* Time axis labels */
+.coachify-calendar .fc .fc-timegrid-slot-label,
+.coachify-calendar .fc .fc-timegrid-axis {
+  background: rgb(var(--background));
+}
+
+.coachify-calendar .fc .fc-timegrid-slot-label-cushion,
+.coachify-calendar .fc .fc-timegrid-axis-cushion {
+  color: rgb(var(--muted-foreground));
+  font-size: 0.75rem;
+}
+
+/* Softer minor lines (dotted) */
+.coachify-calendar .fc .fc-timegrid-slot-minor {
+  border-top-color: rgb(var(--border) / 0.35);
+}
+
+/* Events */
+.coachify-calendar .fc .fc-event {
+  border-radius: 10px;
+}
+
+.coachify-calendar .fc .fc-timegrid-event .fc-event-main {
+  padding: 6px 8px;
+}
+
+.coachify-calendar .fc .fc-daygrid-event {
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+/* Hover affordance for day cells (subtle) */
+.coachify-calendar .fc .fc-timegrid-col-frame:hover,
+.coachify-calendar .fc .fc-daygrid-day-frame:hover {
+  background: rgb(var(--muted) / 0.25);
+}
+
+

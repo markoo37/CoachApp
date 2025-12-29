@@ -1,7 +1,10 @@
 // src/components/NumberInput.tsx
 import React from 'react';
 import { Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { lightColors } from '../styles/colors';
+import Slider from '@react-native-community/slider';
+import { MaterialIcons } from '@expo/vector-icons';
+import { useColorScheme } from 'react-native';
+import { darkColors, lightColors } from '../styles/colors';
 
 interface NumberInputProps {
   label: string;
@@ -30,156 +33,145 @@ export function NumberInput({
   customValueError,
   disabled = false,
 }: NumberInputProps) {
+  const colorScheme = useColorScheme();
+  const colors = colorScheme === 'dark' ? darkColors : lightColors;
+
   const currentValue = parseFloat(value) || defaultValue;
-  const isMin = value && parseFloat(value) <= min;
-  const isMax = value && parseFloat(value) >= max;
-
-  const handleDecrement = () => {
-    if (currentValue > min) {
-      onChange((currentValue - 1).toString());
-    }
-  };
-
-  const handleIncrement = () => {
-    if (currentValue < max) {
-      onChange((currentValue + 1).toString());
-    }
-  };
 
   const handleCustomValue = () => {
-    Alert.prompt(
-      customValueTitle,
-      customValueMessage,
-      [
-        { text: 'Mégse', style: 'cancel' },
-        {
-          text: 'OK',
-          onPress: (text: string | undefined) => {
-            const num = parseFloat(text || '');
-            if (!isNaN(num) && num >= min && num <= max) {
-              onChange(num.toString());
-            } else if (text) {
-              Alert.alert('Hibás érték', customValueError);
-            }
+    if (disabled) return;
+
+    // Alert.prompt is iOS-only; keep iOS experience, provide a simple fallback on Android.
+    if (Platform.OS === 'ios') {
+      Alert.prompt(
+        customValueTitle,
+        customValueMessage,
+        [
+          { text: 'Mégse', style: 'cancel' },
+          {
+            text: 'OK',
+            onPress: (text: string | undefined) => {
+              const num = parseFloat(text || '');
+              if (!isNaN(num) && num >= min && num <= max) {
+                onChange(num.toString());
+              } else if (text) {
+                Alert.alert('Hibás érték', customValueError);
+              }
+            },
           },
-        },
-      ],
-      'plain-text',
-      value || defaultValue.toString(),
-      'numeric'
+        ],
+        'plain-text',
+        value || defaultValue.toString(),
+        'numeric'
+      );
+      return;
+    }
+
+    Alert.alert(
+      customValueTitle,
+      `${customValueMessage}\n\n(Androidon egyelőre sliderrel állítható.)`
     );
   };
 
   return (
     <View style={styles.inputGroup}>
-      <Text style={styles.inputLabel}>{label}</Text>
-      <View style={styles.numberInputContainer}>
-        <TouchableOpacity
-          style={[styles.numberButton, isMin && styles.numberButtonDisabled]}
-          onPress={handleDecrement}
-          disabled={disabled || !!isMin}
-        >
-          <Text style={[styles.numberButtonText, isMin && styles.numberButtonTextDisabled]}>−</Text>
-        </TouchableOpacity>
-        <View style={styles.numberInputValue}>
-          <Text style={styles.numberInputText}>{value || defaultValue.toString()}</Text>
-          <Text style={styles.numberInputUnit}>{unit}</Text>
-        </View>
-        <TouchableOpacity
-          style={[styles.numberButton, isMax && styles.numberButtonDisabled]}
-          onPress={handleIncrement}
-          disabled={disabled || !!isMax}
-        >
-          <Text style={[styles.numberButtonText, isMax && styles.numberButtonTextDisabled]}>+</Text>
-        </TouchableOpacity>
-      </View>
       <TouchableOpacity
-        style={styles.numberInputEditButton}
+        style={[styles.headerRow, disabled && styles.disabled]}
         onPress={handleCustomValue}
+        activeOpacity={0.7}
         disabled={disabled}
       >
-        <Text style={styles.numberInputEditText}>Egyéni érték megadása</Text>
+        <View style={styles.labelColumn}>
+          <View style={styles.labelTopRow}>
+            <Text
+              style={[styles.inputLabel, { color: colors.mutedForeground }]}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {label.toUpperCase()}
+            </Text>
+            <MaterialIcons
+              name="keyboard-arrow-down"
+              size={18}
+              color={colors.mutedForeground}
+            />
+          </View>
+          <Text
+            style={[styles.unitLabel, { color: colors.mutedForeground }]}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            ({unit})
+          </Text>
+        </View>
+        <Text style={[styles.valueText, { color: colors.foreground }]}>
+          {Math.round(currentValue)}
+        </Text>
       </TouchableOpacity>
+
+      <Slider
+        value={currentValue}
+        minimumValue={min}
+        maximumValue={max}
+        step={1}
+        onValueChange={(n) => onChange(Math.round(n).toString())}
+        disabled={disabled}
+        minimumTrackTintColor={colors.primary}
+        maximumTrackTintColor={colors.border}
+        thumbTintColor={colors.primary}
+        style={styles.slider}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   inputGroup: {
-    gap: 6,
+    gap: 10,
     marginBottom: 4,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  labelColumn: {
+    flex: 1,
+    paddingRight: 16,
+  },
+  labelTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    gap: 8,
   },
   inputLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: lightColors.foreground,
-    letterSpacing: -0.1,
-    marginBottom: 2,
+    letterSpacing: 0.2,
+    lineHeight: 18,
   },
-  numberInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    height: 50,
-    borderWidth: 0.5,
-    borderColor: lightColors.border,
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    backgroundColor: Platform.OS === 'ios' ? 'rgba(142, 142, 147, 0.08)' : lightColors.background,
-    shadowColor: Platform.OS === 'ios' ? '#000' : 'transparent',
-    shadowOffset: { width: 0, height: 0.5 },
-    shadowOpacity: Platform.OS === 'ios' ? 0.05 : 0,
-    shadowRadius: 1,
-    elevation: 0,
-  },
-  numberButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
-    backgroundColor: lightColors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: lightColors.border,
-  },
-  numberButtonDisabled: {
-    opacity: 0.3,
-  },
-  numberButtonText: {
-    fontSize: 24,
-    fontWeight: '300',
-    color: lightColors.primary,
-    lineHeight: 24,
-  },
-  numberButtonTextDisabled: {
-    color: lightColors.mutedForeground,
-  },
-  numberInputValue: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 6,
-  },
-  numberInputText: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: lightColors.foreground,
-  },
-  numberInputUnit: {
-    fontSize: 16,
+  unitLabel: {
+    fontSize: 12,
     fontWeight: '500',
-    color: lightColors.mutedForeground,
+    letterSpacing: 0.2,
+    lineHeight: 16,
+    marginTop: 2,
   },
-  numberInputEditButton: {
-    marginTop: 8,
-    paddingVertical: 8,
-    alignItems: 'center',
+  valueText: {
+    fontSize: 22,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+    minWidth: 56,
+    textAlign: 'right',
+    marginLeft: 16,
   },
-  numberInputEditText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: lightColors.primary,
+  slider: {
+    width: '100%',
+    height: 40,
+  },
+  disabled: {
+    opacity: 0.6,
   },
 });
 

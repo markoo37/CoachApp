@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/api';
 import TopHeader from '../components/TopHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardTitle, CardDescription } from '@/components/ui/card';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,19 +16,28 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Loader2, Plus, Users, UserCheck, UserX, Mail, Trash2, Ruler, Weight } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { toast } from 'sonner';
+import { Loader2, Plus, Users, UserCheck, Trash2, Ruler, Weight, Grid3x3, List, Clock, Search } from 'lucide-react';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
 import { Link } from 'react-router-dom';
 import { fetchWellnessIndex } from '../api/wellness';
-
-interface Athlete {
-  Id: number;
-  FirstName?: string;
-  LastName?: string;
-  Email?: string;
-  Weight?: number;
-  Height?: number;
-  HasUserAccount: boolean;
-}
+import AthletesTable, { Athlete } from '@/components/ui/athletes-table';
 
 // Helper function to get initials for avatar
 const getInitials = (firstName?: string, lastName?: string, email?: string): string => {
@@ -48,7 +58,7 @@ const getInitials = (firstName?: string, lastName?: string, email?: string): str
 
 // Helper function to get role based on account status
 const getRole = (hasAccount: boolean): string => {
-  return hasAccount ? 'Aktív sportoló' : 'Várakozó';
+  return hasAccount ? 'App felhasználó' : 'Még nincs app';
 };
 
 // Helper function to calculate average of last 7 wellness index values
@@ -75,33 +85,76 @@ const getWellnessBarColor = (value: number): string => {
   }
 };
 
+type ViewMode = 'grid' | 'list';
+
 export default function AthletesPage() {
-  const [athletes, setAthletes] = useState<Athlete[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [showAddForm, setShowAddForm] = useState(false);
   const [addEmail, setAddEmail] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [deletingAthleteId, setDeletingAthleteId] = useState<number | null>(null);
   const [athleteToDelete, setAthleteToDelete] = useState<Athlete | null>(null);
   const [wellnessData, setWellnessData] = useState<Record<number, number>>({});
   const [hoveredAthleteId, setHoveredAthleteId] = useState<number | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [celebratingAthleteIds, setCelebratingAthleteIds] = useState<Set<number>>(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const previousAthletesRef = useRef<Athlete[]>([]);
+  
+  const ITEMS_PER_PAGE = 9;
 
-  useEffect(() => {
-    fetchAthletes();
-  }, []);
-
-  const fetchAthletes = async () => {
-    try {
-      setLoading(true);
-      setError(null);
+  // Fetch athletes using React Query
+  const { data: athletes = [], isLoading: loading } = useQuery<Athlete[]>({
+    queryKey: ['athletes'],
+    queryFn: async () => {
       const res = await api.get('/athletes');
-      const athletesData = res.data;
-      setAthletes(athletesData);
+      return res.data;
+    },
+    refetchInterval: 2000, // Refetch every 2 seconds to detect registration changes instantly
+  });
+
+  // Detect registration changes and trigger animation
+  useEffect(() => {
+    if (previousAthletesRef.current.length === 0) {
+      previousAthletesRef.current = athletes;
+      return;
+    }
+
+    // Check for athletes who just registered (HasUserAccount changed from false to true)
+    const newlyRegistered = athletes.filter(athlete => {
+      const previous = previousAthletesRef.current.find(a => a.Id === athlete.Id);
+      return previous && !previous.HasUserAccount && athlete.HasUserAccount;
+    });
+
+    if (newlyRegistered.length > 0) {
+      // Immediately refetch to ensure latest data
+      queryClient.invalidateQueries({ queryKey: ['athletes'] });
       
-      // Fetch wellness index for each athlete
-      const wellnessPromises = athletesData.map(async (athlete: Athlete) => {
+      newlyRegistered.forEach(athlete => {
+        setCelebratingAthleteIds(prev => new Set(prev).add(athlete.Id));
+        // Remove animation after 2.5 seconds
+        setTimeout(() => {
+          setCelebratingAthleteIds(prev => {
+            const next = new Set(prev);
+            next.delete(athlete.Id);
+            return next;
+          });
+        }, 2500);
+      });
+    }
+
+    previousAthletesRef.current = athletes;
+  }, [athletes]);
+
+  // Fetch wellness data when athletes change
+  useEffect(() => {
+    if (athletes.length === 0) {
+      setWellnessData({});
+      return;
+    }
+
+    const fetchWellnessData = async () => {
+      const wellnessPromises = athletes.map(async (athlete: Athlete) => {
         try {
           const wellnessIndexes = await fetchWellnessIndex(athlete.Id);
           const average = calculateWellnessAverage(wellnessIndexes);
@@ -118,118 +171,273 @@ export default function AthletesPage() {
         wellnessMap[athleteId] = average;
       });
       setWellnessData(wellnessMap);
-    } catch (err: any) {
-      setError('Nem sikerült betölteni a sportolókat. Próbáld újra!');
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+
+    fetchWellnessData();
+  }, [athletes]);
+
+  // Add athlete mutation
+  const addAthleteMutation = useMutation({
+    mutationFn: async (email: string) => {
+      const res = await api.post('/athletes/add-by-email', { email: email.trim() });
+      return res.data;
+    },
+    onSuccess: (data) => {
+      // If backend returns the new athlete, add it to cache
+      if (data && data.Id) {
+        const currentAthletes = queryClient.getQueryData<Athlete[]>(['athletes']) || [];
+        queryClient.setQueryData<Athlete[]>(['athletes'], [data, ...currentAthletes]);
+      } else {
+        // Otherwise invalidate to refetch
+        queryClient.invalidateQueries({ queryKey: ['athletes'] });
+      }
+      setAddEmail('');
+      setShowAddForm(false);
+      toast.success('Sikeres hozzáadás! A sportoló meghívható az appba.');
+    },
+    onError: (err: any) => {
+      toast.error(
+        err?.response?.data?.message || err?.response?.data || 'Hiba történt a hozzáadás során!'
+      );
+    },
+  });
 
   const handleAddAthlete = async () => {
     if (!addEmail.trim()) {
-      setError('Kötelező megadni az email címet.');
+      toast.error('Kötelező megadni az email címet.');
       return;
     }
     if (athletes.some(a => a.Email?.toLowerCase() === addEmail.trim().toLowerCase())) {
-      setError('Ez a sportoló már hozzá van adva.');
+      toast.error('Ez a sportoló már hozzá van adva.');
       return;
     }
-    setIsSubmitting(true);
-    try {
-      await api.post('/athletes/add-by-email', { email: addEmail.trim() });
-      setAddEmail('');
-      setShowAddForm(false);
-      setSuccess('Sikeres hozzáadás! A sportoló meghívható az appba.');
-      fetchAthletes();
-    } catch (err: any) {
-      setError(
-        err?.response?.data?.message
-          || err?.response?.data
-          || 'Hiba történt a hozzáadás során!'
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
+    addAthleteMutation.mutate(addEmail);
   };
+
+  // Delete athlete mutation
+  const deleteAthleteMutation = useMutation({
+    mutationFn: async (athleteId: number) => {
+      await api.delete(`/athletes/remove-from-coach/${athleteId}`);
+    },
+    onSuccess: (_, athleteId) => {
+      // Remove athlete from cache
+      const currentAthletes = queryClient.getQueryData<Athlete[]>(['athletes']) || [];
+      queryClient.setQueryData<Athlete[]>(
+        ['athletes'],
+        currentAthletes.filter(a => a.Id !== athleteId)
+      );
+      toast.success('Sportoló sikeresen törölve.');
+      setDeletingAthleteId(null);
+      setAthleteToDelete(null);
+    },
+    onError: () => {
+      toast.error('Nem sikerült törölni.');
+      setDeletingAthleteId(null);
+    },
+  });
 
   const handleDeleteAthlete = async () => {
     if (!athleteToDelete) return;
     setDeletingAthleteId(athleteToDelete.Id);
-    try {
-      await api.delete(`/athletes/remove-from-coach/${athleteToDelete.Id}`);
-      fetchAthletes();
-    } catch {
-      setError('Nem sikerült törölni.');
-    } finally {
-      setDeletingAthleteId(null);
-      setAthleteToDelete(null);
+    deleteAthleteMutation.mutate(athleteToDelete.Id);
+  };
+
+  // Filter athletes based on search query
+  const filteredAthletes = athletes.filter((athlete) => {
+    if (!searchQuery.trim()) return true;
+    
+    const query = searchQuery.toLowerCase().trim();
+    const firstName = (athlete.FirstName || '').toLowerCase();
+    const lastName = (athlete.LastName || '').toLowerCase();
+    const email = (athlete.Email || '').toLowerCase();
+    const fullName = `${firstName} ${lastName}`.trim();
+    
+    return (
+      firstName.includes(query) ||
+      lastName.includes(query) ||
+      fullName.includes(query) ||
+      email.includes(query)
+    );
+  });
+
+  // Reset to page 1 when search query changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredAthletes.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedAthletes = filteredAthletes.slice(startIndex, endIndex);
+
+  // Generate page numbers to display
+  const getPageNumbers = () => {
+    const pages: (number | 'ellipsis')[] = [];
+    const maxVisible = 5;
+    
+    if (totalPages <= maxVisible) {
+      // Show all pages if total is less than max visible
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      // Always show first page
+      pages.push(1);
+      
+      if (currentPage <= 3) {
+        // Near the start
+        for (let i = 2; i <= 4; i++) {
+          pages.push(i);
+        }
+        pages.push('ellipsis');
+        pages.push(totalPages);
+      } else if (currentPage >= totalPages - 2) {
+        // Near the end
+        pages.push('ellipsis');
+        for (let i = totalPages - 3; i <= totalPages; i++) {
+          pages.push(i);
+        }
+      } else {
+        // In the middle
+        pages.push('ellipsis');
+        for (let i = currentPage - 1; i <= currentPage + 1; i++) {
+          pages.push(i);
+        }
+        pages.push('ellipsis');
+        pages.push(totalPages);
+      }
     }
+    
+    return pages;
   };
 
   return (
     <div className="min-h-screen bg-background lg:pl-64">
-      <TopHeader title="Összes sportolóm" subtitle={`${athletes.length} sportoló`} />
+      <TopHeader title="Összes sportolóm" subtitle={`${filteredAthletes.length} sportoló${searchQuery ? ` (${athletes.length} összesen)` : ''}`} />
       
       <div className="p-8">
         <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-end mb-8">
+          <div className="flex items-center gap-4 mb-8">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Keresés név vagy email alapján..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant={viewMode === 'grid' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('grid')}
+              >
+                <Grid3x3 className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('list')}
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </div>
             <Button onClick={() => setShowAddForm(true)} size="lg">
               <Plus className="mr-2 h-5 w-5 stroke-[2.5]" />
               Új sportoló
             </Button>
           </div>
 
-        {showAddForm && (
-          <Card className="mb-8">
-            <CardHeader>
-              <CardTitle>Sportoló hozzáadása e-maillel</CardTitle>
-              <CardDescription>
+        <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Sportoló hozzáadása e-maillel</DialogTitle>
+              <DialogDescription>
                 A játékos később az appban töltheti ki a nevét és adatait.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col md:flex-row gap-4">
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col gap-4 py-4">
               <Input
                 type="email"
                 placeholder="sportolo@email.com"
                 value={addEmail}
                 onChange={e => setAddEmail(e.target.value)}
-                disabled={isSubmitting}
+                disabled={addAthleteMutation.isPending}
                 required
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !addAthleteMutation.isPending) {
+                    handleAddAthlete();
+                  }
+                }}
               />
-              <Button onClick={handleAddAthlete} disabled={isSubmitting}>
-                {isSubmitting ? <Loader2 className="animate-spin w-5 h-5 mr-2" /> : <Plus className="w-5 h-5 mr-2 stroke-[2.5]" />}
-                Hozzáadás
-              </Button>
-              <Button variant="outline" onClick={() => { setShowAddForm(false); setAddEmail(''); }}>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => { setShowAddForm(false); setAddEmail(''); }} disabled={addAthleteMutation.isPending}>
                 Mégse
               </Button>
-            </CardContent>
-            {error && <div className="text-destructive px-6 pb-4">{error}</div>}
-            {success && <div className="text-green-600 px-6 pb-4">{success}</div>}
-          </Card>
-        )}
+              <Button onClick={handleAddAthlete} disabled={addAthleteMutation.isPending}>
+                {addAthleteMutation.isPending ? <Loader2 className="animate-spin w-5 h-5 mr-2" /> : <Plus className="w-5 h-5 mr-2 stroke-[2.5]" />}
+                Hozzáadás
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {loading ? (
           <div className="flex items-center justify-center h-48">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {athletes.map((a) => {
+          <>
+            <AnimatePresence mode="wait">
+              {viewMode === 'grid' ? (
+                <motion.div
+                  key="grid"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.3, ease: "easeInOut" }}
+                  className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                >
+                  {paginatedAthletes.map((a) => {
               const initials = getInitials(a.FirstName, a.LastName, a.Email);
               const fullName = (a.FirstName || a.LastName)
                 ? `${a.FirstName ?? ''} ${a.LastName ?? ''}`.trim()
                 : 'Név később...';
               const role = getRole(a.HasUserAccount);
               const wellnessAverage = wellnessData[a.Id] || 0;
+              const isCelebrating = celebratingAthleteIds.has(a.Id);
               
               return (
-                <Card 
-                  key={a.Id} 
-                  className="relative overflow-hidden hover:shadow-lg transition-all duration-200 border-border/50"
-                  onMouseEnter={() => setHoveredAthleteId(a.Id)}
-                  onMouseLeave={() => setHoveredAthleteId(null)}
-                >
+                <div key={a.Id} className="relative">
+                  {isCelebrating && (
+                    <div className="absolute inset-0 rounded-lg overflow-hidden pointer-events-none z-0">
+                      <div
+                        className="absolute w-[300%] h-[50%] opacity-70 bottom-[-11px] right-[-250%] rounded-full animate-star-movement-bottom"
+                        style={{
+                          background: `radial-gradient(circle, #22c55e, transparent 10%)`,
+                          animationDuration: '1.5s'
+                        }}
+                      ></div>
+                      <div
+                        className="absolute w-[300%] h-[50%] opacity-70 top-[-10px] left-[-250%] rounded-full animate-star-movement-top"
+                        style={{
+                          background: `radial-gradient(circle, #22c55e, transparent 10%)`,
+                          animationDuration: '1.5s'
+                        }}
+                      ></div>
+                    </div>
+                  )}
+                  <Card 
+                    className={`relative overflow-hidden hover:shadow-lg transition-all duration-200 border-border/50 ${
+                      !a.HasUserAccount ? 'bg-yellow-50 dark:bg-yellow-900/20' : ''
+                    } ${isCelebrating ? 'border-2 border-green-500' : ''}`}
+                    onMouseEnter={() => setHoveredAthleteId(a.Id)}
+                    onMouseLeave={() => setHoveredAthleteId(null)}
+                  >
                   <CardContent className="p-6">
                     {/* Profile Picture and Name Section */}
                     <div className="flex items-start gap-4 mb-6">
@@ -243,13 +451,20 @@ export default function AthletesPage() {
                             <UserCheck className="w-3 h-3 text-white" />
                           </div>
                         )}
+                        {!a.HasUserAccount && (
+                          <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-yellow-500 rounded-full border-2 border-white flex items-center justify-center">
+                            <Clock className="w-3 h-3 text-white" />
+                          </div>
+                        )}
                       </div>
                       
                       {/* Name and Role */}
                       <div className="flex-1 min-w-0">
-                        <CardTitle className="text-lg font-semibold mb-1 truncate">
-                          {fullName}
-                        </CardTitle>
+                        <div className="flex items-center gap-2 mb-1">
+                          <CardTitle className="text-lg font-semibold truncate">
+                            {fullName}
+                          </CardTitle>
+                        </div>
                         <div className="relative h-5 overflow-hidden">
                           <CardDescription 
                             className={`text-sm text-muted-foreground absolute inset-0 transition-all duration-300 ease-in-out ${
@@ -324,7 +539,10 @@ export default function AthletesPage() {
                         size="sm"
                         className="flex-1"
                       >
-                        <Link to={`/athletes/${a.Id}`}>
+                        <Link 
+                          to={`/athletes/${a.Id}`}
+                          state={{ from: "/athletes" }}
+                        >
                           <Users className="w-4 h-4 mr-2" />
                           Részletek
                         </Link>
@@ -346,9 +564,85 @@ export default function AthletesPage() {
                     </div>
                   </CardContent>
                 </Card>
+                </div>
               );
             })}
-          </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="list"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3, ease: "easeInOut" }}
+              >
+                <AthletesTable
+                  athletes={filteredAthletes}
+                  wellnessData={wellnessData}
+                  deletingAthleteId={deletingAthleteId}
+                  onDeleteClick={setAthleteToDelete}
+                />
+              </motion.div>
+              )}
+            </AnimatePresence>
+            
+            {/* Pagination - always show for grid view */}
+            {viewMode === 'grid' && (
+              <div className="mt-8 flex justify-center">
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (currentPage > 1) {
+                            setCurrentPage(currentPage - 1);
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }
+                        }}
+                        className={currentPage === 1 ? 'pointer-events-none opacity-50' : ''}
+                      />
+                    </PaginationItem>
+                    
+                    {getPageNumbers().map((page, index) => (
+                      <PaginationItem key={index}>
+                        {page === 'ellipsis' ? (
+                          <PaginationEllipsis />
+                        ) : (
+                          <PaginationLink
+                            href="#"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setCurrentPage(page);
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
+                            isActive={currentPage === page}
+                          >
+                            {page}
+                          </PaginationLink>
+                        )}
+                      </PaginationItem>
+                    ))}
+                    
+                    <PaginationItem>
+                      <PaginationNext
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (currentPage < totalPages) {
+                            setCurrentPage(currentPage + 1);
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }
+                        }}
+                        className={currentPage === totalPages ? 'pointer-events-none opacity-50' : ''}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            )}
+          </>
         )}
       </div>
 

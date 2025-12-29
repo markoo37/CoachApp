@@ -22,7 +22,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { NumberInput } from '../../src/components';
 import { AuthAPI } from '../../src/services/api';
 import { useAuthStore } from '../../src/stores/authStore';
-import { lightColors } from '../../src/styles/colors';
+import { darkColors as lightColors } from '../../src/styles/colors';
 import { RegisterPlayerRequest } from '../../src/types/auth';
 
 type AuthMode = 'login' | 'register';
@@ -290,9 +290,10 @@ export default function UnifiedAuthScreen() {
   // JSX – amit küldtél, csak most már biztosan az új logikával dolgozik
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView behavior="padding" style={styles.flex}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+            <View style={styles.card}>
             {/* Header */}
             <View style={styles.headerContainer}>
               <Text style={styles.headerTitle}>
@@ -546,37 +547,33 @@ export default function UnifiedAuthScreen() {
                     )}
                   </View>
 
-                  <View style={styles.nameRow}>
-                    <View style={[styles.inputGroup, { flex: 1 }]}>
-                      <NumberInput
-                        label="Súly (opcionális)"
-                        value={weight}
-                        onChange={setWeight}
-                        unit="kg"
-                        min={30}
-                        max={200}
-                        defaultValue={70}
-                        customValueTitle="Súly megadása"
-                        customValueMessage="Add meg a súlyt kilogrammban:"
-                        customValueError="A súly 30-200 kg között lehet"
-                        disabled={isLoading}
-                      />
-                    </View>
-                    <View style={[styles.inputGroup, { flex: 1 }]}>
-                      <NumberInput
-                        label="Magasság (opcionális)"
-                        value={height}
-                        onChange={setHeight}
-                        unit="cm"
-                        min={100}
-                        max={250}
-                        defaultValue={175}
-                        customValueTitle="Magasság megadása"
-                        customValueMessage="Add meg a magasságot centiméterben:"
-                        customValueError="A magasság 100-250 cm között lehet"
-                        disabled={isLoading}
-                      />
-                    </View>
+                  <View style={styles.sliderStack}>
+                    <NumberInput
+                      label="Súly (opcionális)"
+                      value={weight}
+                      onChange={setWeight}
+                      unit="kg"
+                      min={30}
+                      max={200}
+                      defaultValue={70}
+                      customValueTitle="Súly megadása"
+                      customValueMessage="Add meg a súlyt kilogrammban:"
+                      customValueError="A súly 30-200 kg között lehet"
+                      disabled={isLoading}
+                    />
+                    <NumberInput
+                      label="Magasság (opcionális)"
+                      value={height}
+                      onChange={setHeight}
+                      unit="cm"
+                      min={100}
+                      max={250}
+                      defaultValue={175}
+                      customValueTitle="Magasság megadása"
+                      customValueMessage="Add meg a magasságot centiméterben:"
+                      customValueError="A magasság 100-250 cm között lehet"
+                      disabled={isLoading}
+                    />
                   </View>
                 </>
               )}
@@ -608,6 +605,7 @@ export default function UnifiedAuthScreen() {
               </View>
               </Animated.View>
             </View>
+            </View>
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -624,21 +622,41 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 20,
   },
   content: {
-    maxWidth: 400,
+    maxWidth: 420,
     alignSelf: 'center',
     width: '100%',
   },
+  card: {
+    borderRadius: 24,
+    padding: 20,
+    backgroundColor: lightColors.secondary,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: lightColors.border,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.08,
+        shadowRadius: 18,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
   headerContainer: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: '700',
     color: lightColors.foreground,
     marginBottom: 8,
+    letterSpacing: -0.6,
   },
   headerSubtitle: {
     fontSize: 15,
@@ -646,16 +664,16 @@ const styles = StyleSheet.create({
   },
   toggleContainer: {
     flexDirection: 'row',
-    backgroundColor: lightColors.muted,
-    borderRadius: 12,
+    backgroundColor: lightColors.secondary,
+    borderRadius: 16,
     padding: 4,
     marginBottom: 24,
   },
   toggleButton: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 10,
     alignItems: 'center',
-    borderRadius: 10,
+    borderRadius: 14,
   },
   toggleButtonActive: {
     backgroundColor: lightColors.primary,
@@ -669,7 +687,7 @@ const styles = StyleSheet.create({
     color: lightColors.primaryForeground,
   },
   formWrapper: {
-    minHeight: 400,
+    minHeight: 0,
   },
   formContainer: {
     gap: 16,
@@ -677,6 +695,9 @@ const styles = StyleSheet.create({
   nameRow: {
     flexDirection: 'row',
     gap: 12,
+  },
+  sliderStack: {
+    gap: 24,
   },
   inputGroup: {
     gap: 6,
@@ -692,11 +713,11 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 50,
-    borderWidth: 1,
+    height: 52,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: lightColors.border,
-    borderRadius: 12,
-    backgroundColor: lightColors.background,
+    borderRadius: 16,
+    backgroundColor: lightColors.secondary,
   },
   inputWrapperError: {
     borderColor: '#ef4444',
@@ -790,12 +811,23 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   submitButton: {
-    height: 52,
+    height: 56,
     backgroundColor: lightColors.primary,
-    borderRadius: 12,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: lightColors.primary,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.22,
+        shadowRadius: 18,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   buttonLoading: { 
     opacity: 0.7,

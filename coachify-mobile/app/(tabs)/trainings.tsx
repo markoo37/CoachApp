@@ -1,4 +1,5 @@
 // app/(tabs)/trainings.tsx - Trainings page
+import { MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
@@ -10,13 +11,14 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  useColorScheme,
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Header } from '../../src/components';
 import { useAuthStore } from '../../src/stores/authStore';
-import { lightColors } from '../../src/styles/colors';
+import { darkColors, lightColors } from '../../src/styles/colors';
 
 // Inline types
 interface TrainingPlanData {
@@ -55,6 +57,8 @@ const formatTimeDisplay = (startTime?: string, endTime?: string) => {
 export default function TrainingsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const colorScheme = useColorScheme();
+  const colors = colorScheme === 'dark' ? darkColors : lightColors;
   const { player, logout } = useAuthStore();
 
   // Inline API loading
@@ -133,15 +137,19 @@ export default function TrainingsScreen() {
 
   if (!apiAvailable) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <Header 
-            title="Edzések" 
-            subtitle={`Üdv, ${firstName || 'User'}! 👋`}
+            title={firstName || 'User'} 
+            subtitle="Edzések"
           />
 
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>
+            <View style={[styles.emptyIconContainer, { backgroundColor: colors.muted }]}>
+              <MaterialIcons name="fitness-center" size={48} color={colors.mutedForeground} />
+            </View>
+            <Text style={[styles.emptyTitle, { color: colors.foreground }]}>Még nincsenek edzések</Text>
+            <Text style={[styles.emptyDescription, { color: colors.mutedForeground }]}>
               Az edzések funkció hamarosan elérhető lesz
             </Text>
           </View>
@@ -151,72 +159,107 @@ export default function TrainingsScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView 
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
         }
       >
         {/* Header */}
         <Header 
-          title="Edzések" 
-          subtitle={`Üdv, ${firstName || 'User'}! 👋`}
+          title={firstName || 'User'} 
+          subtitle={teamName ? `${teamName} edzései` : 'Edzések'}
         />
 
         {/* Training Plans Section */}
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
             <View>
-              <Text style={styles.sectionTitle}>
+              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
                 {teamName ? `${teamName} edzései` : 'Edzésterveim'}
               </Text>
               {teamName && (
-                <TouchableOpacity onPress={handleBackToTeams}>
-                  <Text style={styles.backText}>← Vissza a csapatokhoz</Text>
+                <TouchableOpacity onPress={handleBackToTeams} style={styles.backButton}>
+                  <MaterialIcons name="arrow-back" size={16} color={colors.primary} />
+                  <Text style={[styles.backText, { color: colors.primary }]}>Vissza a csapatokhoz</Text>
                 </TouchableOpacity>
               )}
             </View>
-            <TouchableOpacity onPress={() => fetchTrainingPlans()}>
-              <Text style={styles.refreshText}>🔄</Text>
+            <TouchableOpacity onPress={() => fetchTrainingPlans()} style={styles.refreshButton}>
+              <MaterialIcons name="refresh" size={24} color={colors.primary} />
             </TouchableOpacity>
           </View>
           
           {loading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={lightColors.primary} />
+              <ActivityIndicator size="large" color={colors.primary} />
             </View>
           ) : trainingPlans.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>
+              <View style={[styles.emptyIconContainer, { backgroundColor: colors.muted }]}>
+                <MaterialIcons name="fitness-center" size={48} color={colors.mutedForeground} />
+              </View>
+              <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
                 {teamName ? 'Ennek a csapatnak még nincsenek edzéstervei' : 'Még nincsenek edzésterveid'}
               </Text>
             </View>
           ) : (
             <View style={styles.trainingPlansContainer}>
               {trainingPlans.map((plan) => (
-                <View key={plan.Id} style={styles.trainingCard}>
+                <View key={plan.Id} style={[styles.trainingCard, { backgroundColor: colors.card }]}>
                   <View style={styles.trainingHeader}>
-                    <Text style={styles.trainingName}>{plan.Name}</Text>
-                    <Text style={styles.trainingDate}>{formatDate(plan.Date)}</Text>
+                    <View style={styles.trainingHeaderLeft}>
+                      <View style={[styles.trainingIconContainer, { backgroundColor: '#fef3c7' }]}>
+                        <MaterialIcons name="fitness-center" size={24} color="#f59e0b" />
+                      </View>
+                      <View style={styles.trainingTitleContainer}>
+                        <Text style={[styles.trainingName, { color: colors.foreground }]}>{plan.Name}</Text>
+                        <Text style={[styles.trainingDate, { color: colors.mutedForeground }]}>
+                          {formatDate(plan.Date)}
+                        </Text>
+                      </View>
+                    </View>
                   </View>
                   
-                  <Text style={styles.trainingDescription}>{plan.Description}</Text>
+                  {plan.Description && (
+                    <Text style={[styles.trainingDescription, { color: colors.mutedForeground }]}>
+                      {plan.Description}
+                    </Text>
+                  )}
                   
                   <View style={styles.trainingDetails}>
                     {formatTimeDisplay(plan.StartTime, plan.EndTime) && (
-                      <Text style={styles.trainingTime}>
-                        🕐 {formatTimeDisplay(plan.StartTime, plan.EndTime)}
-                      </Text>
+                      <View style={styles.trainingDetailRow}>
+                        <MaterialIcons name="schedule" size={18} color={colors.mutedForeground} />
+                        <Text style={[styles.trainingDetailText, { color: colors.mutedForeground }]}>
+                          {formatTimeDisplay(plan.StartTime, plan.EndTime)}
+                        </Text>
+                      </View>
                     )}
                     
                     {plan.TeamName && !teamName && (
-                      <Text style={styles.trainingTeam}>🏆 {plan.TeamName}</Text>
+                      <View style={styles.trainingDetailRow}>
+                        <MaterialIcons name="groups" size={18} color={colors.mutedForeground} />
+                        <Text style={[styles.trainingDetailText, { color: colors.mutedForeground }]}>
+                          {plan.TeamName}
+                        </Text>
+                      </View>
                     )}
                     
                     {plan.AthleteName && (
-                      <Text style={styles.trainingAthlete}>👤 {plan.AthleteName}</Text>
+                      <View style={styles.trainingDetailRow}>
+                        <MaterialIcons name="person" size={18} color={colors.mutedForeground} />
+                        <Text style={[styles.trainingDetailText, { color: colors.mutedForeground }]}>
+                          {plan.AthleteName}
+                        </Text>
+                      </View>
                     )}
                   </View>
                 </View>
@@ -232,11 +275,10 @@ export default function TrainingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: lightColors.background,
   },
   scrollContent: {
-    paddingHorizontal: 32,
-    paddingTop: 60,
+    paddingHorizontal: 16,
+    paddingTop: 20,
     paddingBottom: 100,
   },
   sectionContainer: {
@@ -245,88 +287,129 @@ const styles = StyleSheet.create({
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: lightColors.foreground,
-    letterSpacing: 0.1,
+    fontSize: 20,
+    fontWeight: '700',
+    letterSpacing: -0.3,
   },
-  refreshText: {
-    fontSize: 16,
+  refreshButton: {
+    padding: 4,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 8,
+  },
+  backText: {
+    fontSize: 15,
+    fontWeight: '500',
   },
   loadingContainer: {
     alignItems: 'center',
-    paddingVertical: 32,
+    paddingVertical: 60,
   },
   emptyContainer: {
     alignItems: 'center',
-    paddingVertical: 32,
+    paddingVertical: 60,
+    paddingHorizontal: 20,
+  },
+  emptyIconContainer: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+  },
+  emptyTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  emptyDescription: {
+    fontSize: 15,
+    textAlign: 'center',
+    lineHeight: 22,
   },
   emptyText: {
     fontSize: 16,
-    color: lightColors.mutedForeground,
     textAlign: 'center',
   },
-  backText: {
-    fontSize: 14,
-    color: lightColors.mutedForeground,
-    marginTop: 4,
-  },
   trainingPlansContainer: {
-    gap: 16,
+    gap: 12,
   },
   trainingCard: {
     padding: 20,
-    borderWidth: 0.5,
-    borderColor: lightColors.border,
-    borderRadius: 12,
-    backgroundColor: Platform.OS === 'ios' ? 'rgba(142, 142, 147, 0.08)' : lightColors.card,
-    shadowColor: Platform.OS === 'ios' ? '#000' : 'transparent',
-    shadowOffset: { width: 0, height: 0.5 },
-    shadowOpacity: Platform.OS === 'ios' ? 0.05 : 0,
-    shadowRadius: 1,
-    elevation: 0,
+    borderRadius: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   trainingHeader: {
+    marginBottom: 12,
+  },
+  trainingHeaderLeft: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 8,
+    gap: 12,
+  },
+  trainingIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  trainingTitleContainer: {
+    flex: 1,
   },
   trainingName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: lightColors.foreground,
-    flex: 1,
-    marginRight: 16,
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 4,
   },
   trainingDate: {
     fontSize: 14,
-    color: lightColors.mutedForeground,
-    fontWeight: '500',
+    fontWeight: '400',
   },
   trainingDescription: {
-    fontSize: 14,
-    color: lightColors.mutedForeground,
-    marginBottom: 12,
-    lineHeight: 20,
+    fontSize: 15,
+    marginBottom: 16,
+    lineHeight: 22,
   },
   trainingDetails: {
-    gap: 4,
+    gap: 10,
+    marginTop: 4,
+  },
+  trainingDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  trainingDetailText: {
+    fontSize: 14,
+    fontWeight: '400',
   },
   trainingTime: {
     fontSize: 13,
-    color: lightColors.mutedForeground,
   },
   trainingTeam: {
     fontSize: 13,
-    color: lightColors.mutedForeground,
   },
   trainingAthlete: {
     fontSize: 13,
-    color: lightColors.mutedForeground,
   },
 });

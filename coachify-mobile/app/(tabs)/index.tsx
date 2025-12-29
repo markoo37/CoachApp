@@ -1,4 +1,5 @@
 // app/(tabs)/index.tsx - Home/Overview page
+import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import {
@@ -7,17 +8,20 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  useColorScheme,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Header, LogoutButton } from '../../src/components';
 import { useAuthStore } from '../../src/stores/authStore';
-import { lightColors } from '../../src/styles/colors';
+import { darkColors, lightColors } from '../../src/styles/colors';
 
 export default function HomeScreen() {
   const router = useRouter();
   const { player, logout } = useAuthStore();
+  const colorScheme = useColorScheme();
+  const colors = colorScheme === 'dark' ? darkColors : lightColors;
   
   // Inline API loading (until shared hooks are created)
   const [apiAvailable, setApiAvailable] = React.useState(false);
@@ -42,107 +46,182 @@ export default function HomeScreen() {
   } = player || {};
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView 
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
         <Header 
-          title="Főoldal" 
-          subtitle={`Üdv, ${firstName || 'User'}! 👋`}
+          title={firstName || 'User'} 
+          subtitle="Üdvözlünk a Coachify-ban"
+          showNotification
         />
 
-        {/* Profile Section */}
+        {/* Summary Cards Section */}
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Profil</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Áttekintés</Text>
+            <TouchableOpacity>
+              <Text style={[styles.seeAllText, { color: colors.primary }]}>Összes</Text>
+            </TouchableOpacity>
+          </View>
           
-          <View style={styles.profileCard}>
-            <View style={styles.avatarContainer}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>
-                  {firstName?.[0] || 'U'}{lastName?.[0] || 'S'}
-                </Text>
-              </View>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.cardsScroll}
+          >
+            <View style={[styles.summaryCard, { backgroundColor: colors.primary }]}>
+              <Text style={styles.summaryCardLabel}>Aktív csapatok</Text>
+              <Text style={styles.summaryCardValue}>{teamName ? '1' : '0'}</Text>
+              <MaterialIcons name="groups" size={24} color="#ffffff" style={styles.summaryCardIcon} />
             </View>
             
-            <View style={styles.profileInfo}>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Név</Text>
-                <Text style={styles.infoValue}>{firstName} {lastName}</Text>
-              </View>
-              
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Email</Text>
-                <Text style={styles.infoValue}>{email}</Text>
-              </View>
-              
-              {teamName && (
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Csapat</Text>
-                  <Text style={styles.infoValue}>{teamName}</Text>
-                </View>
-              )}
-              
-              {coachName && (
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Edző</Text>
-                  <Text style={styles.infoValue}>{coachName}</Text>
-                </View>
-              )}
-              
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Szerepkör</Text>
-                <Text style={styles.infoValue}>Sportoló</Text>
-              </View>
+            <View style={[styles.summaryCard, { backgroundColor: '#8b5cf6' }]}>
+              <Text style={styles.summaryCardLabel}>Edzések</Text>
+              <Text style={styles.summaryCardValue}>-</Text>
+              <MaterialIcons name="fitness-center" size={24} color="#ffffff" style={styles.summaryCardIcon} />
             </View>
-          </View>
+            
+            <View style={[styles.summaryCard, { backgroundColor: '#10b981' }]}>
+              <Text style={styles.summaryCardLabel}>Wellness</Text>
+              <Text style={styles.summaryCardValue}>-</Text>
+              <MaterialIcons name="self-improvement" size={24} color="#ffffff" style={styles.summaryCardIcon} />
+            </View>
+          </ScrollView>
         </View>
 
         {/* Quick Actions */}
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Gyors műveletek</Text>
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Gyors műveletek</Text>
           
-          <View style={styles.quickActions}>
+          <View style={styles.quickActionsGrid}>
             <TouchableOpacity 
-              style={[styles.quickActionButton, !apiAvailable && styles.quickActionButtonDisabled]}
-              onPress={() => apiAvailable && router.push('/teams' as any)}
-              disabled={!apiAvailable}
+              style={[styles.quickActionButton, { backgroundColor: colors.card }]}
+              onPress={() => router.push('/wellness' as any)}
+              activeOpacity={0.7}
             >
-              <Text style={styles.quickActionIcon}>🏆</Text>
-              <Text style={styles.quickActionText}>Csapatok</Text>
-              {!apiAvailable && <Text style={styles.quickActionStatus}>Hamarosan</Text>}
+              <View style={[styles.quickActionIconContainer, { backgroundColor: '#f3e8ff' }]}>
+                <MaterialIcons name="self-improvement" size={24} color="#8b5cf6" />
+              </View>
+              <Text style={[styles.quickActionText, { color: colors.foreground }]}>Wellness</Text>
             </TouchableOpacity>
             
             <TouchableOpacity 
-              style={[styles.quickActionButton, !apiAvailable && styles.quickActionButtonDisabled]}
+              style={[styles.quickActionButton, { backgroundColor: colors.card }]}
+              onPress={() => apiAvailable && router.push('/teams' as any)}
+              disabled={!apiAvailable}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.quickActionIconContainer, { backgroundColor: '#dbeafe' }]}>
+                <MaterialIcons name="groups" size={24} color="#3b82f6" />
+              </View>
+              <Text style={[styles.quickActionText, { color: colors.foreground }]}>Csapatok</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.quickActionButton, { backgroundColor: colors.card }]}
               onPress={() => apiAvailable && router.push('/trainings' as any)}
               disabled={!apiAvailable}
+              activeOpacity={0.7}
             >
-              <Text style={styles.quickActionIcon}>📋</Text>
-              <Text style={styles.quickActionText}>Edzések</Text>
-              {!apiAvailable && <Text style={styles.quickActionStatus}>Hamarosan</Text>}
+              <View style={[styles.quickActionIconContainer, { backgroundColor: '#fef3c7' }]}>
+                <MaterialIcons name="fitness-center" size={24} color="#f59e0b" />
+              </View>
+              <Text style={[styles.quickActionText, { color: colors.foreground }]}>Edzések</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.quickActionButton, { backgroundColor: colors.card }]}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.quickActionIconContainer, { backgroundColor: '#fce7f3' }]}>
+                <MaterialIcons name="bar-chart" size={24} color="#ec4899" />
+              </View>
+              <Text style={[styles.quickActionText, { color: colors.foreground }]}>Statisztika</Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Debug Info (Development only) */}
-        {__DEV__ && (
-          <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Debug információ</Text>
-            <View style={styles.debugContainer}>
-              <Text style={styles.debugText}>User ID: {athleteId || 'N/A'}</Text>
-              <Text style={styles.debugText}>Email: {email || 'N/A'}</Text>
-              <Text style={styles.debugText}>Team: {teamName || 'N/A'}</Text>
-              <Text style={styles.debugText}>Coach: {coachName || 'N/A'}</Text>
-              <Text style={styles.debugText}>API Available: {apiAvailable ? 'Yes' : 'No'}</Text>
-              <Text style={styles.debugText}>Env: {__DEV__ ? 'Development' : 'Production'}</Text>
+        {/* Recent Activity */}
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Legutóbbi tevékenységek</Text>
+            <TouchableOpacity>
+              <Text style={[styles.seeAllText, { color: colors.primary }]}>Összes</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <View style={[styles.activityCard, { backgroundColor: colors.card }]}>
+            <View style={styles.activityItem}>
+              <View style={[styles.activityIconContainer, { backgroundColor: '#f3e8ff' }]}>
+                <MaterialIcons name="self-improvement" size={20} color="#8b5cf6" />
+              </View>
+              <View style={styles.activityInfo}>
+                <Text style={[styles.activityTitle, { color: colors.foreground }]}>Wellness check</Text>
+                <Text style={[styles.activitySubtitle, { color: colors.mutedForeground }]}>Ma, 14:30</Text>
+              </View>
+              <MaterialIcons name="chevron-right" size={20} color={colors.mutedForeground} />
+            </View>
+            
+            <View style={styles.activityItem}>
+              <View style={[styles.activityIconContainer, { backgroundColor: '#dbeafe' }]}>
+                <MaterialIcons name="groups" size={20} color="#3b82f6" />
+              </View>
+              <View style={styles.activityInfo}>
+                <Text style={[styles.activityTitle, { color: colors.foreground }]}>Csapat frissítés</Text>
+                <Text style={[styles.activitySubtitle, { color: colors.mutedForeground }]}>Tegnap, 10:15</Text>
+              </View>
+              <MaterialIcons name="chevron-right" size={20} color={colors.mutedForeground} />
             </View>
           </View>
-        )}
+        </View>
+
+        {/* Profile Info Card */}
+        <View style={styles.sectionContainer}>
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Profil információk</Text>
+          
+          <View style={[styles.profileCard, { backgroundColor: colors.card }]}>
+            <View style={styles.profileHeader}>
+              <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
+                <Text style={styles.avatarText}>
+                  {firstName?.[0] || 'U'}{lastName?.[0] || 'S'}
+                </Text>
+              </View>
+              <View style={styles.profileHeaderText}>
+                <Text style={[styles.profileName, { color: colors.foreground }]}>{firstName} {lastName}</Text>
+                <Text style={[styles.profileRole, { color: colors.mutedForeground }]}>Sportoló</Text>
+              </View>
+            </View>
+            
+            <View style={styles.profileDetails}>
+              <View style={styles.profileDetailRow}>
+                <MaterialIcons name="email" size={18} color={colors.mutedForeground} />
+                <Text style={[styles.profileDetailText, { color: colors.foreground }]}>{email}</Text>
+              </View>
+              
+              {teamName && (
+                <View style={styles.profileDetailRow}>
+                  <MaterialIcons name="groups" size={18} color={colors.mutedForeground} />
+                  <Text style={[styles.profileDetailText, { color: colors.foreground }]}>{teamName}</Text>
+                </View>
+              )}
+              
+              {coachName && (
+                <View style={styles.profileDetailRow}>
+                  <MaterialIcons name="person" size={18} color={colors.mutedForeground} />
+                  <Text style={[styles.profileDetailText, { color: colors.foreground }]}>Edző: {coachName}</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        </View>
 
         {/* Logout Button */}
-        <LogoutButton onLogout={logout} />
+        <View style={styles.logoutContainer}>
+          <LogoutButton onLogout={logout} />
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -151,160 +230,226 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: lightColors.background,
   },
   scrollContent: {
-    paddingHorizontal: 32,
-    paddingTop: 60,
+    paddingHorizontal: 16,
+    paddingTop: 20,
     paddingBottom: 100,
   },
   sectionContainer: {
     marginBottom: 32,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: lightColors.foreground,
-    letterSpacing: 0.1,
-    marginBottom: 16,
-  },
-  profileCard: {
-    padding: 24,
-    borderWidth: 0.5,
-    borderColor: lightColors.border,
-    borderRadius: 12,
-    backgroundColor: Platform.OS === 'ios' ? 'rgba(142, 142, 147, 0.08)' : lightColors.card,
-    shadowColor: Platform.OS === 'ios' ? '#000' : 'transparent',
-    shadowOffset: { width: 0, height: 0.5 },
-    shadowOpacity: Platform.OS === 'ios' ? 0.05 : 0,
-    shadowRadius: 1,
-    elevation: 0,
-  },
-  avatarContainer: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: lightColors.primary, // #e40145
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    color: lightColors.primaryForeground,
-    fontSize: 32,
-    fontWeight: '700',
-  },
-  profileInfo: {
-    gap: 16,
-  },
-  infoRow: {
+  sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: lightColors.muted,
+    marginBottom: 16,
   },
-  infoLabel: {
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  seeAllText: {
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  cardsScroll: {
+    paddingRight: 16,
+    gap: 12,
+  },
+  summaryCard: {
+    width: 200,
+    height: 140,
+    borderRadius: 20,
+    padding: 20,
+    justifyContent: 'space-between',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  summaryCardLabel: {
     fontSize: 14,
     fontWeight: '500',
-    color: lightColors.mutedForeground,
-  },
-  infoValue: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: lightColors.foreground,
-    textAlign: 'right',
-    flex: 1,
-    marginLeft: 16,
-  },
-  quickActions: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  quickActionButton: {
-    flex: 1,
-    alignItems: 'center',
-    padding: 20,
-    borderWidth: 0.5,
-    borderColor: lightColors.border,
-    borderRadius: 12,
-    backgroundColor: Platform.OS === 'ios' ? 'rgba(142, 142, 147, 0.08)' : lightColors.card,
-    shadowColor: Platform.OS === 'ios' ? '#000' : 'transparent',
-    shadowOffset: { width: 0, height: 0.5 },
-    shadowOpacity: Platform.OS === 'ios' ? 0.05 : 0,
-    shadowRadius: 1,
-    elevation: 0,
-  },
-  quickActionButtonDisabled: {
-    backgroundColor: lightColors.muted,
-    borderColor: lightColors.muted,
-  },
-  quickActionIcon: {
-    fontSize: 32,
+    color: 'rgba(255, 255, 255, 0.9)',
     marginBottom: 8,
   },
-  quickActionText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: lightColors.foreground,
+  summaryCardValue: {
+    fontSize: 36,
+    fontWeight: '700',
+    color: '#ffffff',
+    letterSpacing: -1,
   },
-  quickActionStatus: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: lightColors.mutedForeground,
-    backgroundColor: lightColors.muted,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 4,
-    marginTop: 4,
+  summaryCardIcon: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    opacity: 0.3,
   },
-  statusGrid: {
+  quickActionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 16,
+    gap: 12,
   },
-  statusItem: {
+  quickActionButton: {
+    width: '47%',
+    alignItems: 'center',
+    padding: 20,
+    borderRadius: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  quickActionIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  quickActionText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  activityCard: {
+    borderRadius: 16,
+    padding: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  activityItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: lightColors.border,
-    borderRadius: 8,
-    backgroundColor: lightColors.card,
-    minWidth: '45%',
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
   },
-  statusDot: {
-    fontSize: 12,
-    color: '#10B981', // success green
-    marginRight: 8,
+  activityIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
   },
-  statusText: {
+  activityInfo: {
+    flex: 1,
+  },
+  activityTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  activitySubtitle: {
+    fontSize: 13,
+    fontWeight: '400',
+  },
+  profileCard: {
+    borderRadius: 16,
+    padding: 20,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  profileHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  avatar: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  avatarText: {
+    color: '#ffffff',
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  profileHeaderText: {
+    flex: 1,
+  },
+  profileName: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  profileRole: {
     fontSize: 14,
     fontWeight: '400',
-    color: lightColors.foreground,
+  },
+  profileDetails: {
+    gap: 12,
+  },
+  profileDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  profileDetailText: {
+    fontSize: 15,
+    fontWeight: '400',
   },
   debugContainer: {
     padding: 16,
-    borderWidth: 0.5,
-    borderColor: lightColors.border,
-    borderRadius: 12,
-    backgroundColor: Platform.OS === 'ios' ? 'rgba(142, 142, 147, 0.08)' : lightColors.muted,
-    shadowColor: Platform.OS === 'ios' ? '#000' : 'transparent',
-    shadowOffset: { width: 0, height: 0.5 },
-    shadowOpacity: Platform.OS === 'ios' ? 0.05 : 0,
-    shadowRadius: 1,
-    elevation: 0,
+    borderRadius: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   debugText: {
     fontSize: 12,
-    color: lightColors.mutedForeground,
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
     marginBottom: 4,
     fontWeight: '400',
+  },
+  logoutContainer: {
+    marginTop: 8,
+    marginBottom: 20,
   },
 });

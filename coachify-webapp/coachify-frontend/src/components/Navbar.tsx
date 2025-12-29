@@ -75,6 +75,7 @@ export default function Navbar() {
     { name: 'Csapataim',     href: '/my-teams',      icon: UserGroupIcon,  current: location.pathname === '/my-teams' },
     { name: 'Sportolók',     href: '/athletes',      icon: UserCircleIcon, current: location.pathname === '/athletes' },
     { name: 'Edzéstervek',   href: '/training-plans', icon: CalendarIcon,   current: location.pathname === '/training-plans' },
+    { name: 'Naptár',        href: '/calendar',      icon: CalendarIcon,   current: location.pathname === '/calendar' },
     { name: 'Analitika',     href: '/analytics',     icon: ChartBarIcon,   current: location.pathname === '/analytics' },
     { name: 'Beállítások',   href: '/settings',      icon: CogIcon,        current: location.pathname === '/settings' },
   ];

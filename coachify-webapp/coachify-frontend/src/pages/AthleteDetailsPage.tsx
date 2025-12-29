@@ -1,23 +1,26 @@
-import { useEffect, useState, useMemo, useRef } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import api from "../api/api";
 import TopHeader from "../components/TopHeader";
+import { PageBreadcrumb, useBreadcrumbItems } from "../components/PageBreadcrumb";
 import { getAthleteWellness, WellnessCheck } from "../api/wellness";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Loader2, ArrowLeft, TrendingUp, ChevronDown } from "lucide-react";
+import { Loader2, TrendingUp, ChevronDown, Clock } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { PolarAngleAxis, PolarGrid, Radar, RadarChart, Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { PolarAngleAxis, PolarGrid, Radar, RadarChart } from "recharts";
 import {
   ChartConfig,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { TimeRangeSelect, TimeRange } from "@/components/TimeRangeSelect";
+import { TimeRange, TimeRangeSelect } from "@/components/TimeRangeSelect";
 import { fetchWellnessIndex } from "../api/wellness";
 import type { WellnessIndex } from "../types/wellnessIndex";
+import { WellnessTable } from "@/components/ui/wellness-table";
+import { WellnessIndexChart } from "@/components/ui/wellness-index-chart";
 
 interface AthleteDetails {
   id: number;
@@ -33,12 +36,6 @@ export default function AthleteDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const athleteId = Number(id);
 
-  const [athlete, setAthlete] = useState<AthleteDetails | null>(null);
-  const [wellness, setWellness] = useState<WellnessCheck[]>([]);
-  const [wellnessIndex, setWellnessIndex] = useState<WellnessIndex[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [wellnessLoading, setWellnessLoading] = useState(false);
-  const [wellnessIndexLoading, setWellnessIndexLoading] = useState(false);
   const [wellnessSummaryTimeRange, setWellnessSummaryTimeRange] = useState<TimeRange>("7d");
   const [timeRange, setTimeRange] = useState<TimeRange>("30d");
   
@@ -46,7 +43,6 @@ export default function AthleteDetailsPage() {
   const days = useMemo(() => {
     return wellnessSummaryTimeRange === "7d" ? 7 : wellnessSummaryTimeRange === "30d" ? 30 : 90;
   }, [wellnessSummaryTimeRange]);
-  const [error, setError] = useState<string | null>(null);
   const [expandedCards, setExpandedCards] = useState<{
     wellnessSummary: boolean;
     wellnessIndex: boolean;
@@ -71,91 +67,130 @@ export default function AthleteDetailsPage() {
     }
   };
 
-
-  // Load athlete data only once
-  useEffect(() => {
-    if (!athleteId) return;
-
-    const loadAthlete = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const athleteRes = await api.get(`/athletes/${athleteId}`);
-        const a = athleteRes.data;
-
-        setAthlete({
-          id: a.id ?? a.Id,
-          firstName: a.firstName ?? a.FirstName,
-          lastName: a.lastName ?? a.LastName,
-          email: a.email ?? a.Email,
-          weight: a.weight ?? a.Weight,
-          height: a.height ?? a.Height,
-          hasUserAccount: a.hasUserAccount ?? a.HasUserAccount,
-        });
-      } catch (err: any) {
-        console.error(err);
-        setError(err.message || "Nem sikerült betölteni a sportoló adatait.");
-      } finally {
-        setLoading(false);
+  // Helper function to toggle a card and close all others
+  const toggleCard = (cardKey: keyof typeof expandedCards, ref?: React.RefObject<HTMLDivElement | null>, yOffset: number = -200) => {
+    const wasExpanded = expandedCards[cardKey];
+    // If opening a card, close all others; if closing, just toggle this one
+    if (!wasExpanded) {
+      setExpandedCards({
+        wellnessSummary: false,
+        wellnessIndex: false,
+        detailedWellness: false,
+        [cardKey]: true,
+      });
+      if (ref) {
+        setTimeout(() => {
+          scrollToRef(ref, yOffset);
+        }, 350);
       }
-    };
+    } else {
+      setExpandedCards(prev => ({ ...prev, [cardKey]: false }));
+    }
+  };
 
-    loadAthlete();
-  }, [athleteId]);
+  const athleteQuery = useQuery<AthleteDetails>({
+    queryKey: ["athlete", athleteId],
+    enabled: Boolean(athleteId),
+    queryFn: async () => {
+      const athleteRes = await api.get(`/athletes/${athleteId}`);
+      const a = athleteRes.data;
+      return {
+        id: a.id ?? a.Id,
+        firstName: a.firstName ?? a.FirstName,
+        lastName: a.lastName ?? a.LastName,
+        email: a.email ?? a.Email,
+        weight: a.weight ?? a.Weight,
+        height: a.height ?? a.Height,
+        hasUserAccount: a.hasUserAccount ?? a.HasUserAccount,
+      };
+    },
+    staleTime: 60_000,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
 
-  // Load wellness data separately when days changes
+  const wellnessQuery = useQuery<WellnessCheck[]>({
+    queryKey: ["athleteWellness", athleteId, days],
+    enabled: Boolean(athleteId),
+    queryFn: () => getAthleteWellness(athleteId, days),
+    staleTime: 60_000,
+    retry: false,
+    refetchOnWindowFocus: false,
+    placeholderData: (prev) => prev ?? [],
+  });
+
+  const allWellnessQuery = useQuery<WellnessCheck[]>({
+    queryKey: ["athleteWellnessAll", athleteId, 365],
+    enabled: Boolean(athleteId),
+    queryFn: () => getAthleteWellness(athleteId, 365),
+    staleTime: 60_000,
+    retry: false,
+    refetchOnWindowFocus: false,
+    select: (w) => w.slice().sort((a, b) => new Date(b.Date).getTime() - new Date(a.Date).getTime()),
+    placeholderData: [],
+  });
+
+  const wellnessIndexQuery = useQuery<WellnessIndex[]>({
+    queryKey: ["athleteWellnessIndex", athleteId, timeRange],
+    enabled: Boolean(athleteId),
+    queryFn: () => {
+      const today = new Date();
+      const daysToSubtract = timeRange === "7d" ? 7 : timeRange === "30d" ? 30 : 90;
+      const fromDate = new Date(today);
+      fromDate.setDate(fromDate.getDate() - daysToSubtract);
+
+      const from = fromDate.toISOString().split("T")[0];
+      const to = today.toISOString().split("T")[0];
+
+      return fetchWellnessIndex(athleteId, from, to);
+    },
+    staleTime: 60_000,
+    retry: false,
+    refetchOnWindowFocus: false,
+    placeholderData: (prev) => prev ?? [],
+  });
+
+  const wellness = wellnessQuery.data ?? [];
+  const wellnessLoading = wellnessQuery.isFetching;
+
+  const allWellness = allWellnessQuery.data ?? [];
+  const allWellnessInitialLoading = allWellnessQuery.isLoading;
+  const allWellnessLoading = allWellnessQuery.isFetching;
+
+  const wellnessIndex = wellnessIndexQuery.data ?? [];
+  const wellnessIndexLoading = wellnessIndexQuery.isFetching;
+
+  const athlete = athleteQuery.data ?? null;
+  const errorMessage = useMemo(() => {
+    if (!athleteQuery.error) return null;
+    const err: any = athleteQuery.error;
+    return err?.message || "Nem sikerült betölteni a sportoló adatait.";
+  }, [athleteQuery.error]);
+
   useEffect(() => {
-    if (!athleteId) return;
+    if (athleteQuery.error) console.error(athleteQuery.error);
+  }, [athleteQuery.error]);
 
-    const loadWellness = async () => {
-      try {
-        setWellnessLoading(true);
-        const w = await getAthleteWellness(athleteId, days);
-        setWellness(w);
-      } catch (err: any) {
-        console.error(err);
-        // Don't set error state for wellness loading failures, just log
-      } finally {
-        setWellnessLoading(false);
-      }
-    };
-
-    loadWellness();
-  }, [athleteId, days]);
-
-  // Load wellness index data when time range changes
   useEffect(() => {
-    if (!athleteId) return;
+    if (wellnessQuery.error) console.error(wellnessQuery.error);
+  }, [wellnessQuery.error]);
 
-    const loadWellnessIndex = async () => {
-      try {
-        setWellnessIndexLoading(true);
-        const today = new Date();
-        const daysToSubtract = timeRange === "7d" ? 7 : timeRange === "30d" ? 30 : 90;
-        const fromDate = new Date(today);
-        fromDate.setDate(fromDate.getDate() - daysToSubtract);
-        
-        const from = fromDate.toISOString().split('T')[0];
-        const to = today.toISOString().split('T')[0];
-        
-        const data = await fetchWellnessIndex(athleteId, from, to);
-        setWellnessIndex(data);
-      } catch (err: any) {
-        console.error(err);
-        // Don't set error state for wellness index loading failures, just log
-      } finally {
-        setWellnessIndexLoading(false);
-      }
-    };
+  useEffect(() => {
+    if (allWellnessQuery.error) console.error(allWellnessQuery.error);
+  }, [allWellnessQuery.error]);
 
-    loadWellnessIndex();
-  }, [athleteId, timeRange]);
+  useEffect(() => {
+    if (wellnessIndexQuery.error) console.error(wellnessIndexQuery.error);
+  }, [wellnessIndexQuery.error]);
 
-  const fullName =
+  const fullName = useMemo(() =>
     (athlete?.firstName || athlete?.lastName)
       ? `${athlete?.firstName ?? ""} ${athlete?.lastName ?? ""}`.trim()
-      : "Ismeretlen név";
+      : "Ismeretlen név",
+    [athlete]
+  );
+
+  const breadcrumbItems = useBreadcrumbItems(fullName);
 
   // Get color for wellness parameter badge
   const getWellnessBadgeColor = (paramName: string, value: number): string => {
@@ -204,61 +239,6 @@ export default function AthleteDetailsPage() {
     },
   } satisfies ChartConfig;
 
-  const areaChartConfig = {
-    index: {
-      label: "Érték: ",
-      theme: {
-        light: "rgb(var(--primary))",
-        dark: "rgb(var(--primary))",
-      },
-    },
-  } satisfies ChartConfig;
-
-  // Filter wellness index data based on time range
-  // If there's less data than the selected range, show all available data
-  const filteredWellnessIndexData = useMemo(() => {
-    if (!wellnessIndex.length) return [];
-    
-    // First, sort all data by date
-    const sortedData = wellnessIndex
-      .map(item => ({
-        date: item.date,
-        index: item.index,
-      }))
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    
-    // Try to filter by time range
-    const today = new Date();
-    const daysToSubtract = timeRange === "7d" ? 7 : timeRange === "30d" ? 30 : 90;
-    const startDate = new Date(today);
-    startDate.setDate(startDate.getDate() - daysToSubtract);
-    
-    const filtered = sortedData.filter(item => {
-      const itemDate = new Date(item.date);
-      return itemDate >= startDate;
-    });
-    
-    // If filtered data is empty or has less than 2 items, return all available data
-    if (filtered.length === 0 || filtered.length < 2) {
-      return sortedData;
-    }
-    
-    return filtered;
-  }, [wellnessIndex, timeRange]);
-
-  // Calculate gradient stops based on actual Y values (0-100 scale assumed for wellness index)
-  const gradientStops = useMemo(() => {
-    // Assuming wellness index is 0-100, map value ranges to colors
-    // 0-33: red zone, 33-66: yellow zone, 66-100: green zone
-    // Gradient goes from bottom (0) to top (100), so we reverse: top=green, bottom=red
-    return [
-      { offset: "0%", color: "#22c55e", opacity: 0.8 },   // top (high values) = green
-      { offset: "33%", color: "#22c55e", opacity: 0.6 },  // 66-100 range
-      { offset: "50%", color: "#eab308", opacity: 0.5 },  // middle = yellow
-      { offset: "67%", color: "#ef4444", opacity: 0.6 },  // 0-33 range
-      { offset: "100%", color: "#ef4444", opacity: 0.8 }, // bottom (low values) = red
-    ];
-  }, []);
 
   // Calculate trend (comparing last period with previous period)
   const trend = useMemo(() => {
@@ -280,7 +260,7 @@ export default function AthleteDetailsPage() {
     return change;
   }, [wellness]);
 
-  if (loading) {
+  if (athleteQuery.isLoading) {
     return (
       <div className="min-h-screen bg-background lg:pl-64 flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -288,18 +268,14 @@ export default function AthleteDetailsPage() {
     );
   }
 
-  if (error || !athlete) {
+  if (errorMessage || !athlete) {
+    const errorBreadcrumbItems = useBreadcrumbItems("Hiba");
     return (
       <div className="min-h-screen bg-background lg:pl-64">
         <TopHeader title="Sportoló részletei" />
-        <div className="p-8 max-w-3xl mx-auto">
-          <Button asChild variant="outline" className="mb-4">
-            <Link to="/athletes">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Vissza a sportolókhoz
-            </Link>
-          </Button>
-          <p className="text-destructive">{error || "A sportoló nem található."}</p>
+        <div className="p-8 max-w-7xl mx-auto">
+          <PageBreadcrumb items={errorBreadcrumbItems} />
+          <p className="text-destructive">{errorMessage || "A sportoló nem található."}</p>
         </div>
       </div>
     );
@@ -310,32 +286,25 @@ export default function AthleteDetailsPage() {
       <TopHeader title={fullName} subtitle={athlete.email} />
       
       <div className="p-8">
-        <div className="max-w-4xl mx-auto space-y-6">
-          <div className="sticky top-20 z-30 -mt-8 pt-8">
-            <Button 
-              asChild 
-              variant="outline" 
-              className="fixed left-4 lg:left-72 top-20 transition-all duration-300 hover:translate-x-1"
-            >
-              <Link to="/athletes">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                <span className="hidden sm:inline">Vissza a sportolókhoz</span>
-                <span className="sm:hidden">Vissza</span>
-              </Link>
-            </Button>
-          </div>
+        <div className="max-w-7xl mx-auto space-y-6">
+          <PageBreadcrumb items={breadcrumbItems} />
 
         {/* Alapadatok kártya */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-4">
-            <div>
+            <div className="flex items-center gap-2">
               <CardTitle className="text-2xl">{fullName}</CardTitle>
-              <CardDescription>{athlete.email || "Nincs e-mail megadva"}</CardDescription>
+              {!athlete.hasUserAccount && (
+                <Clock className="h-5 w-5 text-yellow-500" />
+              )}
             </div>
-            <Badge variant={athlete.hasUserAccount ? "default" : "secondary"}>
-              {athlete.hasUserAccount ? "App felhasználó" : "Még nincs app fiókja"}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant={athlete.hasUserAccount ? "default" : "secondary"}>
+                {athlete.hasUserAccount ? "App felhasználó" : "Még nincs app fiókja"}
+              </Badge>
+            </div>
           </CardHeader>
+          <CardDescription className="px-6 pb-4">{athlete.email || "Nincs e-mail megadva"}</CardDescription>
           <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
               <p className="text-xs text-muted-foreground uppercase">Magasság</p>
@@ -357,15 +326,7 @@ export default function AthleteDetailsPage() {
           <CardHeader className="py-6">
             <div className="flex justify-between items-center min-h-[3rem]">
               <button
-              onClick={() => {
-                const wasExpanded = expandedCards.wellnessSummary;
-                setExpandedCards(prev => ({ ...prev, wellnessSummary: !prev.wellnessSummary }));
-                if (!wasExpanded) {
-                  setTimeout(() => {
-                    scrollToRef(wellnessSummaryRef, -200);
-                  }, 350);
-                }
-              }}
+              onClick={() => toggleCard('wellnessSummary', wellnessSummaryRef)}
                 className="flex items-center gap-3 text-left group flex-1"
               >
                 <div>
@@ -467,15 +428,7 @@ export default function AthleteDetailsPage() {
           <CardHeader className="py-6">
             <div className="flex justify-between items-center min-h-[3rem]">
               <button
-              onClick={() => {
-                const wasExpanded = expandedCards.wellnessIndex;
-                setExpandedCards(prev => ({ ...prev, wellnessIndex: !prev.wellnessIndex }));
-                if (!wasExpanded) {
-                  setTimeout(() => {
-                    scrollToRef(wellnessIndexRef, -200);
-                  }, 350);
-                }
-              }}
+              onClick={() => toggleCard('wellnessIndex', wellnessIndexRef)}
                 className="flex items-center gap-3 text-left group flex-1"
               >
                 <div className="grid flex-1 gap-1">
@@ -503,103 +456,12 @@ export default function AthleteDetailsPage() {
                 className="overflow-hidden"
               >
                 <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-                  <div className="flex justify-end mb-4">
-                    <TimeRangeSelect value={timeRange} onValueChange={setTimeRange} />
-                  </div>
-            {filteredWellnessIndexData.length === 0 && !wellnessIndexLoading ? (
-              <p className="text-muted-foreground text-center py-8">
-                Nincs elérhető wellness index adat a kiválasztott időszakban.
-              </p>
-            ) : (
-              <div className="relative">
-                <div className={`transition-opacity duration-300 ${wellnessIndexLoading ? 'opacity-50' : 'opacity-100'}`}>
-                  <ChartContainer
-                    config={areaChartConfig}
-                    className="aspect-auto h-[250px] w-full"
-                  >
-                    <AreaChart data={filteredWellnessIndexData}>
-                      <defs>
-                        <linearGradient id="strokeIndex" x1="0" y1="0" x2="0" y2="1">
-                          {gradientStops.map((stop, i) => (
-                            <stop
-                              key={i}
-                              offset={stop.offset}
-                              stopColor={stop.color}
-                            />
-                          ))}
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid vertical={false} stroke="rgb(var(--foreground))" strokeOpacity={0.1} />
-                      <YAxis 
-                        domain={[0, 100]} 
-                        tickLine={false}
-                        axisLine={false}
-                        tickMargin={8}
-                        stroke="rgb(var(--foreground))"
-                        strokeOpacity={0.5}
-                      />
-                      <XAxis
-                        dataKey="date"
-                        tickLine={false}
-                        axisLine={false}
-                        tickMargin={8}
-                        minTickGap={32}
-                        tickFormatter={(value) => {
-                          const date = new Date(value);
-                          return date.toLocaleDateString("hu-HU", {
-                            month: "short",
-                            day: "numeric",
-                          });
-                        }}
-                        stroke="rgb(var(--foreground))"
-                        strokeOpacity={0.5}
-                      />
-                      <ChartTooltip
-                        cursor={false}
-                        content={
-                          <ChartTooltipContent
-                            labelFormatter={(value) => {
-                              return new Date(value).toLocaleDateString("hu-HU", {
-                                year: "numeric",
-                                month: "long",
-                                day: "numeric",
-                              });
-                            }}
-                            indicator="dot"
-                          />
-                        }
-                      />
-                      <Area
-                        dataKey="index"
-                        type="natural"
-                        fill="transparent"
-                        stroke="url(#strokeIndex)"
-                        strokeWidth={2}
-                        dot={{
-                          fill: "rgb(var(--foreground))",
-                          fillOpacity: 0.6,
-                          stroke: "rgb(var(--background))",
-                          strokeWidth: 1.5,
-                          r: 3,
-                        }}
-                        activeDot={{
-                          fill: "rgb(var(--foreground))",
-                          fillOpacity: 0.9,
-                          stroke: "rgb(var(--background))",
-                          strokeWidth: 2,
-                          r: 4,
-                        }}
-                      />
-                    </AreaChart>
-                  </ChartContainer>
-                </div>
-                {wellnessIndexLoading && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                  </div>
-                )}
-              </div>
-            )}
+                  <WellnessIndexChart
+                    data={wellnessIndex}
+                    timeRange={timeRange}
+                    onTimeRangeChange={setTimeRange}
+                    loading={wellnessIndexLoading}
+                  />
                 </CardContent>
               </motion.div>
             )}
@@ -607,23 +469,16 @@ export default function AthleteDetailsPage() {
         </Card>
 
         {/* Részletes lista */}
-        <Card ref={detailedWellnessRef}>
+        <div ref={detailedWellnessRef}>
+          <Card>
           <CardHeader className="py-6">
             <button
-              onClick={() => {
-                const wasExpanded = expandedCards.detailedWellness;
-                setExpandedCards(prev => ({ ...prev, detailedWellness: !prev.detailedWellness }));
-                if (!wasExpanded) {
-                  setTimeout(() => {
-                    scrollToRef(detailedWellnessRef, -300);
-                  }, 350);
-                }
-              }}
+                onClick={() => toggleCard('detailedWellness', detailedWellnessRef, -300)}
               className="flex items-center gap-3 text-left group w-full"
             >
               <div>
                 <CardTitle className="group-hover:text-primary transition-colors">Részletes wellness adatok</CardTitle>
-                <CardDescription>Időrendben visszafelé</CardDescription>
+                  <CardDescription>Összes elérhető mérés időrendben visszafelé</CardDescription>
               </div>
               <ChevronDown
                 className={`w-5 h-5 text-muted-foreground transition-transform duration-200 flex-shrink-0 ml-auto ${
@@ -643,101 +498,23 @@ export default function AthleteDetailsPage() {
                 className="overflow-hidden"
               >
                 <CardContent>
-            {wellness.length === 0 ? (
-              <p className="text-muted-foreground">
-                Nincs elérhető wellness adat az utolsó {days} napban.
-              </p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-3 px-4 font-medium text-sm text-muted-foreground">Dátum</th>
-                      <th className="text-center py-3 px-4 font-medium text-sm text-muted-foreground">Fáradtság</th>
-                      <th className="text-center py-3 px-4 font-medium text-sm text-muted-foreground">Alvás</th>
-                      <th className="text-center py-3 px-4 font-medium text-sm text-muted-foreground">Izomláz</th>
-                      <th className="text-center py-3 px-4 font-medium text-sm text-muted-foreground">Stressz</th>
-                      <th className="text-center py-3 px-4 font-medium text-sm text-muted-foreground">Hangulat</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {wellness.map(w => (
-                      <tr key={w.Id} className="border-b hover:bg-muted/50 transition-colors">
-                        <td className="py-3 px-4">
-                          <p className="font-medium">
-                            {new Date(w.Date).toLocaleDateString("hu-HU", {
-                              year: "numeric",
-                              month: "2-digit",
-                              day: "2-digit",
-                            })}
-                          </p>
-                          {w.Comment && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {w.Comment}
-                            </p>
-                          )}
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          <span
-                            className="font-medium"
-                            style={{ 
-                              color: getWellnessBadgeColor("Fatigue", w.Fatigue)
-                            }}
-                          >
-                            {w.Fatigue}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          <span
-                            className="font-medium"
-                            style={{ 
-                              color: getWellnessBadgeColor("SleepQuality", w.SleepQuality)
-                            }}
-                          >
-                            {w.SleepQuality}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          <span
-                            className="font-medium"
-                            style={{ 
-                              color: getWellnessBadgeColor("MuscleSoreness", w.MuscleSoreness)
-                            }}
-                          >
-                            {w.MuscleSoreness}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          <span
-                            className="font-medium"
-                            style={{ 
-                              color: getWellnessBadgeColor("Stress", w.Stress)
-                            }}
-                          >
-                            {w.Stress}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          <span
-                            className="font-medium"
-                            style={{ 
-                              color: getWellnessBadgeColor("Mood", w.Mood)
-                            }}
-                          >
-                            {w.Mood}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    {allWellnessInitialLoading || allWellnessLoading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                      </div>
+                    ) : (
+                      <WellnessTable
+                        wellness={allWellness}
+                        getWellnessBadgeColor={getWellnessBadgeColor}
+                        itemsPerPage={10}
+                      />
             )}
                 </CardContent>
               </motion.div>
             )}
           </AnimatePresence>
         </Card>
+        </div>
         </div>
       </div>
     </div>

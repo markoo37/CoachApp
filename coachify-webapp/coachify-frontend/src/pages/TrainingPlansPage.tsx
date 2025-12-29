@@ -1,8 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import api from '../api/api';
-import { useModals } from '../hooks/useModals';
-import Notification from '../components/ui/Notification';
-import ErrorModal from '../components/ui/ErrorModal';
 import TopHeader from '../components/TopHeader';
 import {
   AlertDialog,
@@ -14,19 +11,25 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { toast } from 'sonner';
 
 // Shadcn/ui imports
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Command,
   CommandEmpty,
@@ -39,6 +42,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { hu } from 'date-fns/locale';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { 
   Loader2, 
   Plus, 
@@ -82,14 +86,66 @@ interface FormDataState {
 }
 
 export default function TrainingPlansPage() {
-  const [plans, setPlans] = useState<TrainingPlanDto[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const queryClient = useQueryClient();
   const [showAddForm, setShowAddForm] = useState(false);
   const [assignTo, setAssignTo] = useState<'Athlete' | 'Team'>('Athlete');
   const [deletingPlanId, setDeletingPlanId] = useState<number | null>(null);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [startTimePickerOpen, setStartTimePickerOpen] = useState(false);
+  const [endTimePickerOpen, setEndTimePickerOpen] = useState(false);
   const [athleteComboboxOpen, setAthleteComboboxOpen] = useState(false);
   const [teamComboboxOpen, setTeamComboboxOpen] = useState(false);
+
+  // Close other popovers when one opens
+  const handleDatePickerChange = (open: boolean) => {
+    setDatePickerOpen(open);
+    if (open) {
+      setStartTimePickerOpen(false);
+      setEndTimePickerOpen(false);
+      setAthleteComboboxOpen(false);
+      setTeamComboboxOpen(false);
+    }
+  };
+
+  const handleStartTimePickerChange = (open: boolean) => {
+    setStartTimePickerOpen(open);
+    if (open) {
+      setDatePickerOpen(false);
+      setEndTimePickerOpen(false);
+      setAthleteComboboxOpen(false);
+      setTeamComboboxOpen(false);
+    }
+  };
+
+  const handleEndTimePickerChange = (open: boolean) => {
+    setEndTimePickerOpen(open);
+    if (open) {
+      setDatePickerOpen(false);
+      setStartTimePickerOpen(false);
+      setAthleteComboboxOpen(false);
+      setTeamComboboxOpen(false);
+    }
+  };
+
+  const handleAthleteComboboxChange = (open: boolean) => {
+    setAthleteComboboxOpen(open);
+    if (open) {
+      setDatePickerOpen(false);
+      setStartTimePickerOpen(false);
+      setEndTimePickerOpen(false);
+      setTeamComboboxOpen(false);
+    }
+  };
+
+  const handleTeamComboboxChange = (open: boolean) => {
+    setTeamComboboxOpen(open);
+    if (open) {
+      setDatePickerOpen(false);
+      setStartTimePickerOpen(false);
+      setEndTimePickerOpen(false);
+      setAthleteComboboxOpen(false);
+    }
+  };
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
     title: string;
@@ -109,51 +165,57 @@ export default function TrainingPlansPage() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // options
-  const [athletes, setAthletes] = useState<AthleteOption[]>([]);
-  const [teamsList, setTeamsList] = useState<TeamOption[]>([]);
+  const {
+    data: plans = [],
+    isLoading,
+    isError: isPlansError,
+    error: plansError,
+  } = useQuery<TrainingPlanDto[], Error>({
+    queryKey: ['trainingplans'],
+    queryFn: async () => {
+      const res = await api.get<TrainingPlanDto[]>('/trainingplans');
+      return res.data;
+    },
+    staleTime: 60_000,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
+  useEffect(() => {
+    if (!plansError) return;
+    console.error(plansError);
+    if (isPlansError) {
+      toast.error('Nem sikerült betölteni az edzésterveket.');
+    }
+  }, [isPlansError, plansError]);
 
   const {
-    errorModal,
-    notification,
-    showNotification,
-    hideNotification,
-    showError,
-    hideError,
-  } = useModals();
-
-  useEffect(() => {
-    fetchPlans();
-  }, []);
-
-  useEffect(() => {
-    if (showAddForm) fetchOptions();
-  }, [showAddForm]);
-
-  const fetchPlans = async () => {
-    setIsLoading(true);
-    try {
-      const res = await api.get<TrainingPlanDto[]>('/trainingplans');
-      setPlans(res.data);
-    } catch (err) {
-      showError('Betöltési hiba', 'Nem sikerült betölteni az edzésterveket.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const fetchOptions = async () => {
-    try {
+    data: optionsData = { athletes: [], teamsList: [] },
+    error: optionsError,
+  } = useQuery<{ athletes: AthleteOption[]; teamsList: TeamOption[] }, Error>({
+    queryKey: ['trainingplans', 'options'],
+    queryFn: async () => {
       const [aRes, tRes] = await Promise.all([
         api.get<AthleteOption[]>('/athletes'),
-        api.get<TeamOption[]>('/teams')
+        api.get<TeamOption[]>('/teams'),
       ]);
-      setAthletes(aRes.data);
-      setTeamsList(tRes.data);
-    } catch {
-      // silently ignore
-    }
-  };
+      return { athletes: aRes.data, teamsList: tRes.data };
+    },
+    enabled: showAddForm,
+    placeholderData: { athletes: [], teamsList: [] },
+    staleTime: 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
+  useEffect(() => {
+    if (!optionsError) return;
+    // previously silently ignored; keep UI silent
+    console.error(optionsError);
+  }, [optionsError]);
+
+  const athletes = optionsData.athletes;
+  const teamsList = optionsData.teamsList;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -164,7 +226,7 @@ export default function TrainingPlansPage() {
     const { Name, Description, Date, StartTime, EndTime, AthleteId, TeamId } = formData;
     if (!Name || !Description || !Date || 
         (assignTo === 'Athlete' ? !AthleteId : !TeamId)) {
-      showError('Hiányzó adat', 'Kérlek tölts ki minden szükséges mezőt.');
+      toast.error('Kérlek tölts ki minden szükséges mezőt.');
       return;
     }
     setIsSubmitting(true);
@@ -180,15 +242,17 @@ export default function TrainingPlansPage() {
       };
       
       await api.post('/trainingplans', payload);
-      fetchPlans();
+      await queryClient.invalidateQueries({ queryKey: ['trainingplans'] });
       setShowAddForm(false);
       setFormData({ Name: '', Description: '', Date: undefined, StartTime: '', EndTime: '', AthleteId: '', TeamId: '' });
       setDatePickerOpen(false);
+      setStartTimePickerOpen(false);
+      setEndTimePickerOpen(false);
       setAthleteComboboxOpen(false);
       setTeamComboboxOpen(false);
-      showNotification('Edzésterv létrehozva!', 'success');
+      toast.success('Edzésterv létrehozva!');
     } catch {
-      showError('Hiba', 'Nem sikerült létrehozni az edzéstervet.');
+      toast.error('Nem sikerült létrehozni az edzéstervet.');
     } finally {
       setIsSubmitting(false);
     }
@@ -204,10 +268,10 @@ export default function TrainingPlansPage() {
         setConfirmDialog(prev => ({ ...prev, open: false }));
         try {
           await api.delete(`/trainingplans/${planId}`);
-          await fetchPlans();
-          showNotification('Edzésterv törölve!', 'success');
+          await queryClient.invalidateQueries({ queryKey: ['trainingplans'] });
+          toast.success('Edzésterv törölve!');
         } catch {
-          showError('Hiba', 'Nem sikerült törölni az edzéstervet.');
+          toast.error('Nem sikerült törölni az edzéstervet.');
         } finally {
           setDeletingPlanId(null);
         }
@@ -219,6 +283,8 @@ export default function TrainingPlansPage() {
     setShowAddForm(false);
     setFormData({ Name: '', Description: '', Date: undefined, StartTime: '', EndTime: '', AthleteId: '', TeamId: '' });
     setDatePickerOpen(false);
+    setStartTimePickerOpen(false);
+    setEndTimePickerOpen(false);
     setAthleteComboboxOpen(false);
     setTeamComboboxOpen(false);
   };
@@ -228,6 +294,27 @@ export default function TrainingPlansPage() {
     if (startTime && endTime) return `${startTime} - ${endTime}`;
     if (startTime) return `${startTime}-tól`;
     return `${endTime}-ig`;
+  };
+
+  // Generate time options (every 15 minutes)
+  const generateTimeOptions = () => {
+    const times: string[] = [];
+    for (let hour = 0; hour < 24; hour++) {
+      for (let minute = 0; minute < 60; minute += 15) {
+        const h = hour.toString().padStart(2, '0');
+        const m = minute.toString().padStart(2, '0');
+        times.push(`${h}:${m}`);
+      }
+    }
+    return times;
+  };
+
+  const timeOptions = generateTimeOptions();
+
+  const formatTimeForDisplay = (time: string) => {
+    if (!time) return '';
+    // Return time in 24-hour format (HH:MM)
+    return time;
   };
 
   return (
@@ -250,50 +337,45 @@ export default function TrainingPlansPage() {
               </Button>
             </div>
 
-            {/* Add Plan Form with Animation */}
-            <AnimatePresence>
-              {showAddForm && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.3 }}
-                  className="mb-8 overflow-hidden"
-                >
-                  <Card className="shadow-md">
-                    <CardHeader>
-                      <CardTitle className="flex items-center">
-                        <Plus className="mr-2 h-5 w-5 stroke-[2.5]" />
-                        Új edzésterv létrehozása
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="Name">Név *</Label>
-                          <Input
-                            id="Name"
-                            name="Name"
-                            value={formData.Name}
-                            onChange={handleInputChange}
-                            placeholder="Edzésterv neve"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="Description">Leírás *</Label>
-                          <Textarea
-                            id="Description"
-                            name="Description"
-                            value={formData.Description}
-                            onChange={handleInputChange}
-                            rows={3}
-                            placeholder="Edzésterv részletes leírása"
-                            className="resize-none"
-                          />
-                        </div>
+            {/* Add Plan Dialog */}
+            <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center">
+                    <Plus className="mr-2 h-5 w-5 stroke-[2.5]" />
+                    Új edzésterv létrehozása
+                  </DialogTitle>
+                  <DialogDescription>
+                    Töltsd ki az edzésterv adatait és rendeld hozzá sportolóhoz vagy csapathoz.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-6 py-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="Name">Név *</Label>
+                        <Input
+                          id="Name"
+                          name="Name"
+                          value={formData.Name}
+                          onChange={handleInputChange}
+                          placeholder="Edzésterv neve"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="Description">Leírás *</Label>
+                        <Textarea
+                          id="Description"
+                          name="Description"
+                          value={formData.Description}
+                          onChange={handleInputChange}
+                          rows={3}
+                          placeholder="Edzésterv részletes leírása"
+                          className="resize-none"
+                        />
+                      </div>
+                      <div className="space-y-4">
                         <div className="space-y-2">
                           <Label htmlFor="Date">Dátum *</Label>
-                          <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                          <Popover open={datePickerOpen} onOpenChange={handleDatePickerChange}>
                             <PopoverTrigger asChild>
                               <Button
                                 variant="outline"
@@ -311,7 +393,15 @@ export default function TrainingPlansPage() {
                                 <ChevronDown className="h-4 w-4" />
                               </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-auto overflow-hidden p-0" align="start">
+                            <PopoverContent 
+                              className="w-auto overflow-hidden p-0 z-[9999] pointer-events-auto" 
+                              align="start"
+                              noPortal={true}
+                              onInteractOutside={(e) => {
+                                // Prevent closing when clicking inside the dialog
+                                e.preventDefault();
+                              }}
+                            >
                               <CalendarComponent
                                 mode="single"
                                 selected={formData.Date}
@@ -326,27 +416,149 @@ export default function TrainingPlansPage() {
                             </PopoverContent>
                           </Popover>
                         </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="StartTime">Kezdési idő</Label>
-                          <Input
-                            id="StartTime"
-                            name="StartTime"
-                            type="time"
-                            value={formData.StartTime}
-                            onChange={handleInputChange}
-                            className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="EndTime">Befejezési idő</Label>
-                          <Input
-                            id="EndTime"
-                            name="EndTime"
-                            type="time"
-                            value={formData.EndTime}
-                            onChange={handleInputChange}
-                            className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
-                          />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="StartTime">Kezdési idő</Label>
+                            <Popover open={startTimePickerOpen} onOpenChange={handleStartTimePickerChange}>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  id="StartTime"
+                                  className={cn(
+                                    "w-full justify-between font-normal",
+                                    !formData.StartTime && "text-muted-foreground"
+                                  )}
+                                >
+                                  {formData.StartTime ? (
+                                    formatTimeForDisplay(formData.StartTime)
+                                  ) : (
+                                    "Válassz kezdési időt"
+                                  )}
+                                  <Clock className="h-4 w-4 ml-2" />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent 
+                                className="w-48 p-0 z-[9999] pointer-events-auto" 
+                                align="start"
+                                noPortal={true}
+                                onInteractOutside={(e) => {
+                                  e.preventDefault();
+                                }}
+                              >
+                                <div className="p-2">
+                                  <div className="max-h-[300px] overflow-y-auto">
+                                    {timeOptions.map((time) => (
+                                      <Button
+                                        key={time}
+                                        variant="ghost"
+                                        className={cn(
+                                          "w-full justify-start font-normal text-sm",
+                                          formData.StartTime === time && "bg-primary text-primary-foreground"
+                                        )}
+                                        onClick={() => {
+                                          setFormData(prev => ({ ...prev, StartTime: time }));
+                                        }}
+                                      >
+                                        <span className="flex-1 text-left">{formatTimeForDisplay(time)}</span>
+                                        {formData.StartTime === time && (
+                                          <Check className="h-4 w-4" />
+                                        )}
+                                      </Button>
+                                    ))}
+                                  </div>
+                                  <div className="flex justify-end gap-2 p-2 border-t">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        setFormData(prev => ({ ...prev, StartTime: '' }));
+                                        setStartTimePickerOpen(false);
+                                      }}
+                                    >
+                                      Törlés
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      onClick={() => setStartTimePickerOpen(false)}
+                                    >
+                                      Kész
+                                    </Button>
+                                  </div>
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="EndTime">Befejezési idő</Label>
+                            <Popover open={endTimePickerOpen} onOpenChange={handleEndTimePickerChange}>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  id="EndTime"
+                                  className={cn(
+                                    "w-full justify-between font-normal",
+                                    !formData.EndTime && "text-muted-foreground"
+                                  )}
+                                >
+                                  {formData.EndTime ? (
+                                    formatTimeForDisplay(formData.EndTime)
+                                  ) : (
+                                    "Válassz befejezési időt"
+                                  )}
+                                  <Clock className="h-4 w-4 ml-2" />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent 
+                                className="w-48 p-0 z-[9999] pointer-events-auto" 
+                                align="start"
+                                noPortal={true}
+                                onInteractOutside={(e) => {
+                                  e.preventDefault();
+                                }}
+                              >
+                                <div className="p-2">
+                                  <div className="max-h-[300px] overflow-y-auto">
+                                    {timeOptions.map((time) => (
+                                      <Button
+                                        key={time}
+                                        variant="ghost"
+                                        className={cn(
+                                          "w-full justify-start font-normal text-sm",
+                                          formData.EndTime === time && "bg-primary text-primary-foreground"
+                                        )}
+                                        onClick={() => {
+                                          setFormData(prev => ({ ...prev, EndTime: time }));
+                                        }}
+                                      >
+                                        <span className="flex-1 text-left">{formatTimeForDisplay(time)}</span>
+                                        {formData.EndTime === time && (
+                                          <Check className="h-4 w-4" />
+                                        )}
+                                      </Button>
+                                    ))}
+                                  </div>
+                                  <div className="flex justify-end gap-2 p-2 border-t">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        setFormData(prev => ({ ...prev, EndTime: '' }));
+                                        setEndTimePickerOpen(false);
+                                      }}
+                                    >
+                                      Törlés
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      onClick={() => setEndTimePickerOpen(false)}
+                                    >
+                                      Kész
+                                    </Button>
+                                  </div>
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                          </div>
                         </div>
                       </div>
                       
@@ -379,7 +591,7 @@ export default function TrainingPlansPage() {
                       {assignTo === 'Athlete' ? (
                         <div className="space-y-2">
                           <Label>Sportoló *</Label>
-                          <Popover open={athleteComboboxOpen} onOpenChange={setAthleteComboboxOpen}>
+                          <Popover open={athleteComboboxOpen} onOpenChange={handleAthleteComboboxChange}>
                             <PopoverTrigger asChild>
                               <Button
                                 variant="outline"
@@ -400,7 +612,14 @@ export default function TrainingPlansPage() {
                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                               </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-full p-0" align="start">
+                            <PopoverContent 
+                              className="w-full p-0 z-[9999] pointer-events-auto" 
+                              align="start"
+                              noPortal={true}
+                              onInteractOutside={(e) => {
+                                e.preventDefault();
+                              }}
+                            >
                               <Command>
                                 <CommandInput placeholder="Keresés sportolók között..." className="h-9" />
                                 <CommandList>
@@ -440,7 +659,7 @@ export default function TrainingPlansPage() {
                       ) : (
                         <div className="space-y-2">
                           <Label>Csapat *</Label>
-                          <Popover open={teamComboboxOpen} onOpenChange={setTeamComboboxOpen}>
+                          <Popover open={teamComboboxOpen} onOpenChange={handleTeamComboboxChange}>
                             <PopoverTrigger asChild>
                               <Button
                                 variant="outline"
@@ -459,7 +678,14 @@ export default function TrainingPlansPage() {
                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                               </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-full p-0" align="start">
+                            <PopoverContent 
+                              className="w-full p-0 z-[9999] pointer-events-auto" 
+                              align="start"
+                              noPortal={true}
+                              onInteractOutside={(e) => {
+                                e.preventDefault();
+                              }}
+                            >
                               <Command>
                                 <CommandInput placeholder="Keresés csapatok között..." className="h-9" />
                                 <CommandList>
@@ -498,24 +724,21 @@ export default function TrainingPlansPage() {
                         </div>
                       )}
                       
-                      {/* Actions */}
-                      <div className="flex justify-end space-x-3 pt-4">
-                        <Button variant="outline" onClick={cancelAddPlan}>
-                          Mégse
-                        </Button>
-                        <Button
-                          onClick={handleSubmitPlan}
-                          disabled={isSubmitting}
-                        >
-                          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                          {isSubmitting ? 'Mentés...' : 'Létrehozás'}
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={cancelAddPlan} disabled={isSubmitting}>
+                    Mégse
+                  </Button>
+                  <Button
+                    onClick={handleSubmitPlan}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {isSubmitting ? 'Mentés...' : 'Létrehozás'}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
 
             {/* Plans List */}
             {isLoading ? (
@@ -618,7 +841,7 @@ export default function TrainingPlansPage() {
         </div>
       </div>
 
-      {/* Modals & Notifications */}
+      {/* Delete Confirmation Dialog */}
       <AlertDialog open={confirmDialog.open} onOpenChange={(open) => !open && setConfirmDialog(prev => ({ ...prev, open: false }))}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -631,20 +854,6 @@ export default function TrainingPlansPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <ErrorModal
-        isOpen={errorModal.isOpen}
-        title={errorModal.title}
-        message={errorModal.message}
-        onClose={hideError}
-      />
-      
-      <Notification
-        isVisible={notification.isVisible}
-        message={notification.message}
-        type={notification.type}
-        onClose={hideNotification}
-      />
     </>
   );
 }

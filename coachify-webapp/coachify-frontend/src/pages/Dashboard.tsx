@@ -28,8 +28,28 @@ import {
   Loader2,
   Trophy,
   Calendar,
-  Target
+  Target,
+  Info,
+  Search,
+  Bell,
+  MessageCircle,
+  MoreVertical,
+  ArrowUpDown,
+  Maximize2,
+  Package,
+  Shield,
+  XCircle
 } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 interface DashboardStats {
   teamCount: number;
@@ -38,18 +58,28 @@ interface DashboardStats {
   recentJoins: number;
 }
 
-interface RecentActivity {
-  id: number;
-  type: 'new_athlete' | 'app_join' | 'team_created' | 'achievement';
-  message: string;
-  time: string;
+interface MetricCard {
+  title: string;
+  value: number;
+  change: number;
+  isPositive: boolean;
   icon: React.ReactNode;
 }
 
-interface TodoItem {
-  task: string;
-  priority: 'magas' | 'közepes' | 'alacsony';
-  completed: boolean;
+interface RecentActivity {
+  id: number;
+  orderId: string;
+  category: string;
+  company: string;
+  arrivalTime: string;
+  route: string;
+  price: string;
+  status: 'Delivered' | 'InProgress' | 'Canceled' | 'Pending' | 'Processing';
+}
+
+interface HeatmapData {
+  day: string;
+  cells: number[];
 }
 
 export default function Dashboard() {
@@ -61,41 +91,110 @@ export default function Dashboard() {
     recentJoins: 0
   });
   const [isLoading, setIsLoading] = useState(true);
-  const [todos, setTodos] = useState<TodoItem[]>([
-    { task: 'Heti teljesítmény áttekintése', priority: 'magas', completed: false },
-    { task: 'Új sportolók app-ba meghívása', priority: 'közepes', completed: false },
-    { task: 'Sprint csapat edzésterv frissítése', priority: 'alacsony', completed: true },
-    { task: 'Verseny eredmények rögzítése', priority: 'magas', completed: false }
-  ]);
+  const [timeRange, setTimeRange] = useState<'Day' | 'Week' | 'Month' | 'Year'>('Week');
+  const [activityFilter, setActivityFilter] = useState<'All' | 'Delivered' | 'In Transit' | 'Pending' | 'Processing'>('All');
+
+  // Mock data for metrics
+  const metrics: MetricCard[] = [
+    {
+      title: 'Total Shipment',
+      value: 232,
+      change: 58.5,
+      isPositive: true,
+      icon: <Package className="w-5 h-5" />
+    },
+    {
+      title: 'Pending Package',
+      value: 132,
+      change: 58.5,
+      isPositive: true,
+      icon: <Clock className="w-5 h-5" />
+    },
+    {
+      title: 'Delivery Shipment',
+      value: 100,
+      change: 58.5,
+      isPositive: false,
+      icon: <CheckCircle2 className="w-5 h-5" />
+    },
+    {
+      title: 'Safe',
+      value: 100,
+      change: 58.5,
+      isPositive: false,
+      icon: <Shield className="w-5 h-5" />
+    },
+    {
+      title: 'Canceled',
+      value: 100,
+      change: 58.5,
+      isPositive: false,
+      icon: <XCircle className="w-5 h-5" />
+    }
+  ];
+
+  // Mock data for tracking analytics
+  const trackingData = [
+    { day: 'Mon', value: 8 },
+    { day: 'Tue', value: 12 },
+    { day: 'Wed', value: 17 },
+    { day: 'Thu', value: 21 },
+    { day: 'Fri', value: 12 },
+    { day: 'Sat', value: 15 },
+    { day: 'Sun', value: 19 }
+  ];
+
+  // Mock heatmap data - including a red cell on Wednesday
+  const heatmapData: HeatmapData[] = [
+    { day: 'Mon', cells: [2, 3, 1, 2, 4, 3, 2, 1, 2, 3, 2, 1] },
+    { day: 'Tue', cells: [3, 2, 4, 3, 2, 1, 3, 2, 4, 1, 2, 3] },
+    { day: 'Wed', cells: [1, 4, 2, -1, 1, 3, 2, 4, 1, 2, 3, 1] }, // -1 for red cell
+    { day: 'Thu', cells: [2, 3, 1, 2, 4, 3, 2, 1, 2, 3, 2, 1] },
+    { day: 'Fri', cells: [3, 2, 4, 3, 2, 1, 3, 2, 4, 1, 2, 3] },
+    { day: 'Sat', cells: [1, 4, 2, 5, 1, 3, 2, 4, 1, 2, 3, 1] },
+    { day: 'Sun', cells: [2, 3, 1, 2, 4, 3, 2, 1, 2, 3, 2, 1] }
+  ];
 
   const recentActivities: RecentActivity[] = [
     {
       id: 1,
-      type: 'app_join',
-      message: 'Nagy Eszter csatlakozott az alkalmazásba',
-      time: '2 órája',
-      icon: <Smartphone className="w-4 h-4" />
+      orderId: '19266755',
+      category: 'Electronics',
+      company: 'Fantom',
+      arrivalTime: '12 Sept 2024',
+      route: 'Ch-BD',
+      price: '$23423.3',
+      status: 'Delivered'
     },
     {
       id: 2,
-      type: 'achievement',
-      message: 'Kovács Péter új egyéni rekordot ért el (11.2s)',
-      time: '5 órája',
-      icon: <Trophy className="w-4 h-4" />
+      orderId: '19266755',
+      category: 'Electronics',
+      company: 'Fantom',
+      arrivalTime: '12 Sept 2024',
+      route: 'Ch-BD',
+      price: '$23423.3',
+      status: 'InProgress'
     },
     {
       id: 3,
-      type: 'team_created',
-      message: 'Sprint csapat létrehozva 3 sportolóval',
-      time: '1 napja',
-      icon: <Users className="w-4 h-4" />
+      orderId: '19266755',
+      category: 'Electronics',
+      company: 'Fantom',
+      arrivalTime: '12 Sept 2024',
+      route: 'Ch-BD',
+      price: '$23423.3',
+      status: 'Canceled'
     },
     {
       id: 4,
-      type: 'new_athlete',
-      message: 'Szabó János hozzáadva a Futó csapathoz',
-      time: '2 napja',
-      icon: <UserPlus className="w-4 h-4" />
+      orderId: '19266755',
+      category: 'Electronics',
+      company: 'Fantom',
+      arrivalTime: '12 Sept 2024',
+      route: 'Ch-BD',
+      price: '$23423.3',
+      status: 'Delivered'
     }
   ];
 
@@ -129,36 +228,41 @@ export default function Dashboard() {
     }
   };
 
-  const currentHour = new Date().getHours();
-  const getGreeting = () => {
-    if (currentHour < 12) return 'Jó reggelt';
-    if (currentHour < 18) return 'Jó napot';
-    return 'Jó estét';
-  };
-
-  const quickActions = [
-    { name: 'Új sportoló', href: '/athletes', icon: <UserPlus className="w-6 h-6" />, description: 'Sportoló hozzáadása' },
-    { name: 'Csapatok', href: '/my-teams', icon: <Users className="w-6 h-6" />, description: 'Csapatok kezelése' },
-    { name: 'Edzéstervek', href: '/training-plans', icon: <Calendar className="w-6 h-6" />, description: 'Tervek létrehozása' },
-    { name: 'Analitika', href: '/analytics', icon: <BarChart3 className="w-6 h-6" />, description: 'Hamarosan elérhető' },
-    { name: 'Profil', href: '/profile', icon: <Settings className="w-6 h-6" />, description: 'Fiók beállítások' },
-    { name: 'Segítség', href: '/help', icon: <HelpCircle className="w-6 h-6" />, description: 'Támogatás' }
-  ];
-
-  const toggleTodo = (index: number) => {
-    setTodos(prev => prev.map((todo, i) => 
-      i === index ? { ...todo, completed: !todo.completed } : todo
-    ));
-  };
-
-  const getPriorityVariant = (priority: string) => {
-    switch (priority) {
-      case 'magas': return 'destructive';
-      case 'közepes': return 'secondary';
-      case 'alacsony': return 'outline';
-      default: return 'secondary';
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'Delivered':
+        return 'text-green-600 dark:text-green-400';
+      case 'InProgress':
+        return 'text-blue-600 dark:text-blue-400';
+      case 'Canceled':
+        return 'text-red-600 dark:text-red-400';
+      case 'Pending':
+        return 'text-yellow-600 dark:text-yellow-400';
+      case 'Processing':
+        return 'text-purple-600 dark:text-purple-400';
+      default:
+        return 'text-muted-foreground';
     }
   };
+
+  const getHeatmapColor = (value: number) => {
+    if (value === -1) return 'bg-red-600 dark:bg-red-500'; // Special red cell
+    if (value >= 4) return 'bg-green-600 dark:bg-green-700';
+    if (value >= 3) return 'bg-green-500 dark:bg-green-600';
+    if (value >= 2) return 'bg-green-400 dark:bg-green-500';
+    if (value >= 1) return 'bg-green-300 dark:bg-green-800';
+    return 'bg-muted';
+  };
+
+  const filteredActivities = activityFilter === 'All' 
+    ? recentActivities 
+    : recentActivities.filter(a => {
+        if (activityFilter === 'Delivered') return a.status === 'Delivered';
+        if (activityFilter === 'In Transit') return a.status === 'InProgress';
+        if (activityFilter === 'Pending') return a.status === 'Pending';
+        if (activityFilter === 'Processing') return a.status === 'Processing';
+        return true;
+      });
 
   if (isLoading) {
     return (
@@ -171,241 +275,252 @@ export default function Dashboard() {
     );
   }
 
+  const chartConfig = {
+    value: {
+      label: 'Value',
+      color: 'hsl(var(--chart-1))',
+    },
+  };
+
   return (
     <div className="min-h-screen bg-background lg:pl-64">
       <TopHeader title="Főoldal" />
       
       <div className="px-6 lg:px-8 py-8">
-        <div className="max-w-7xl mx-auto">
-          {/* Welcome Section */}
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold text-foreground mb-1">
-              {getGreeting()}, {firstName || 'Edző'}! 👋
-            </h2>
-            <p className="text-muted-foreground">
-              Itt van a mai áttekintésed és a legfontosabb teendők
-            </p>
-          </div>
-
-          {/* Quick Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <Card className="hover:shadow-lg transition-all duration-200 border-border/50">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Csapatok</CardTitle>
-                <div className="h-8 w-8 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-                  <Users className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold mb-1">{stats.teamCount}</div>
-                <p className="text-xs text-muted-foreground">Aktív csapatok száma</p>
-              </CardContent>
-            </Card>
-
-            <Card className="hover:shadow-lg transition-all duration-200 border-border/50">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Sportolók</CardTitle>
-                <div className="h-8 w-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                  <Target className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold mb-1">{stats.athleteCount}</div>
-                <p className="text-xs text-muted-foreground">Összes sportoló</p>
-              </CardContent>
-            </Card>
-
-            <Card className="hover:shadow-lg transition-all duration-200 border-border/50">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">App felhasználók</CardTitle>
-                <div className="h-8 w-8 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                  <Smartphone className="h-4 w-4 text-green-600 dark:text-green-400" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold mb-1">{stats.appUsersCount}</div>
-                <p className="text-xs text-muted-foreground">Regisztrált sportolók</p>
-              </CardContent>
-            </Card>
-
-            <Card className="hover:shadow-lg transition-all duration-200 border-border/50">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Új csatlakozók</CardTitle>
-                <div className="h-8 w-8 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
-                  <Star className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold mb-1">{stats.recentJoins}</div>
-                <p className="text-xs text-muted-foreground">Ez a héten</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Main Content Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Recent Activity & Quick Actions */}
-            <div className="lg:col-span-2 space-y-8">
-              {/* Recent Activity */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Activity className="w-5 h-5 mr-2" />
-                    Legújabb tevékenységek
+        <div className="max-w-7xl mx-auto space-y-8">
+          {/* Key Metrics Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+            {metrics.map((metric, index) => (
+              <Card key={index} className="hover:shadow-lg transition-all duration-200 border-border/50">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                    {metric.title}
+                    <button className="w-4 h-4 rounded-full bg-muted hover:bg-muted/80 flex items-center justify-center">
+                      <Info className="w-3 h-3 text-muted-foreground" />
+                    </button>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    {recentActivities.map((activity) => (
-                      <div key={activity.id} className="flex items-start space-x-4 p-3 hover:bg-muted/50 rounded-lg transition-colors">
-                        <div className="flex-shrink-0 w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                          {activity.icon}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-foreground">{activity.message}</p>
-                          <div className="flex items-center text-xs text-muted-foreground mt-1">
-                            <Clock className="w-3 h-3 mr-1" />
-                            {activity.time}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                  <div className="text-3xl font-bold mb-2">{metric.value}</div>
+                  <div className={`flex items-center text-sm ${metric.isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                    {metric.isPositive ? (
+                      <TrendingUp className="w-4 h-4 mr-1" />
+                    ) : (
+                      <TrendingDown className="w-4 h-4 mr-1" />
+                    )}
+                    {metric.isPositive ? '+' : ''}{metric.change}
                   </div>
-                  <Button variant="ghost" className="w-full mt-6" asChild>
-                    <Link to="/activity">
-                      Összes tevékenység megtekintése
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </Link>
-                  </Button>
                 </CardContent>
               </Card>
+            ))}
+          </div>
 
-              {/* Quick Actions */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Gyors műveletek</CardTitle>
-                  <CardDescription>
-                    Gyakran használt funkciók egyszerű elérése
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {quickActions.map((action) => (
-                      <Button key={action.name} variant="outline" className="h-auto p-4 flex flex-col items-center space-y-2" asChild>
-                        <Link to={action.href}>
-                          <div className="text-primary">
-                            {action.icon}
-                          </div>
-                          <div className="text-center">
-                            <div className="text-sm font-medium">{action.name}</div>
-                            <div className="text-xs text-muted-foreground">{action.description}</div>
-                          </div>
-                        </Link>
-                      </Button>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+          {/* Time Range Selector */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {(['Day', 'Week', 'Month', 'Year'] as const).map((range) => (
+                <Button
+                  key={range}
+                  variant={timeRange === range ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setTimeRange(range)}
+                  className={timeRange === range ? '' : 'bg-transparent'}
+                >
+                  {range}
+                </Button>
+              ))}
             </div>
-
-            {/* Sidebar */}
-            <div className="space-y-8">
-              {/* Today's Focus */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <CheckCircle2 className="w-5 h-5 mr-2" />
-                    Mai teendők
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {todos.map((item, index) => (
-                      <div key={index} className="flex items-start space-x-3 p-2 hover:bg-muted/50 rounded-lg transition-colors">
-                        <Checkbox 
-                          checked={item.completed}
-                          onCheckedChange={() => toggleTodo(index)}
-                          className="mt-1"
-                        />
-                        <div className="flex-1 space-y-2">
-                          <p className={`text-sm ${item.completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
-                            {item.task}
-                          </p>
-                          <Badge variant={getPriorityVariant(item.priority)} className="text-xs">
-                            {item.priority}
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Weather Widget */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Sun className="w-5 h-5 mr-2" />
-                    Mai időjárás
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="text-center">
-                  <div className="space-y-2">
-                    <Sun className="w-12 h-12 mx-auto text-yellow-500" />
-                    <div className="text-2xl font-bold">22°C</div>
-                    <div className="flex items-center justify-center text-sm text-muted-foreground">
-                      <Wind className="w-4 h-4 mr-1" />
-                      Napos, szél: 10 km/h
-                    </div>
-                    <Badge variant="secondary" className="text-green-600 bg-green-50">
-                      Tökéletes külső edzéshez! 🏃‍♂️
-                    </Badge>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Team Performance */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <BarChart3 className="w-5 h-5 mr-2" />
-                    Csapat teljesítmény
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center p-3 hover:bg-muted/50 rounded-lg transition-colors">
-                      <span className="text-sm font-medium">Sprint csapat</span>
-                      <div className="flex items-center text-green-600">
-                        <TrendingUp className="w-4 h-4 mr-1" />
-                        <span className="text-sm font-medium">+5.2%</span>
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center p-3 hover:bg-muted/50 rounded-lg transition-colors">
-                      <span className="text-sm font-medium">Futó csapat</span>
-                      <div className="flex items-center text-blue-600">
-                        <TrendingUp className="w-4 h-4 mr-1" />
-                        <span className="text-sm font-medium">+2.1%</span>
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center p-3 hover:bg-muted/50 rounded-lg transition-colors">
-                      <span className="text-sm font-medium">Távfutó csapat</span>
-                      <div className="flex items-center text-orange-600">
-                        <TrendingDown className="w-4 h-4 mr-1" />
-                        <span className="text-sm font-medium">-1.3%</span>
-                      </div>
-                    </div>
-                  </div>
-                  <Button variant="ghost" className="w-full mt-4" asChild>
-                    <Link to="/analytics">
-                      Részletes analitika
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </Link>
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
+            <Button variant="ghost" size="sm">
+              <Maximize2 className="w-4 h-4" />
+            </Button>
           </div>
+
+          {/* Shipment Activates & Tracking Analytics */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Shipment Activates */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Shipment Activates</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between mb-6">
+                  <div className="text-center">
+                    <div className="text-3xl font-bold">48</div>
+                    <div className="text-sm text-muted-foreground">Shipment</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-3xl font-bold">27</div>
+                    <div className="text-sm text-muted-foreground">Delivered</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-3xl font-bold">03</div>
+                    <div className="text-sm text-muted-foreground">Canceled</div>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {heatmapData.map((row, rowIndex) => (
+                    <div key={rowIndex} className="flex items-center gap-2">
+                      <div className="w-12 text-xs text-muted-foreground">{row.day}</div>
+                      <div className="flex gap-1 flex-1">
+                        {row.cells.map((cell, cellIndex) => (
+                          <div
+                            key={cellIndex}
+                            className={`h-6 flex-1 rounded ${getHeatmapColor(cell)}`}
+                            title={`Value: ${cell}`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Tracking Analytics */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Tracking Analytics</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ChartContainer config={chartConfig} className="h-[300px]">
+                  <BarChart data={trackingData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis 
+                      dataKey="day" 
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={8}
+                    />
+                    <YAxis 
+                      domain={[0, 25]}
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={8}
+                      ticks={[0, 5, 10, 15, 20, 25]}
+                    />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Bar 
+                      dataKey="value" 
+                      fill="hsl(var(--primary))"
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Recent Activities */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Recent Activities</CardTitle>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm">
+                    Customize
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {/* Filter Buttons */}
+              <div className="flex items-center gap-2 mb-4">
+                {(['All', 'Delivered', 'In Transit', 'Pending', 'Processing'] as const).map((filter) => (
+                  <Button
+                    key={filter}
+                    variant={activityFilter === filter ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setActivityFilter(filter)}
+                    className={activityFilter === filter ? '' : 'bg-transparent'}
+                  >
+                    {filter}
+                  </Button>
+                ))}
+              </div>
+
+              {/* Table */}
+              <div className="border rounded-lg">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">
+                        <Checkbox />
+                      </TableHead>
+                      <TableHead className="flex items-center gap-1">
+                        Order ID
+                        <ArrowUpDown className="w-3 h-3" />
+                      </TableHead>
+                      <TableHead className="flex items-center gap-1">
+                        Category
+                        <ArrowUpDown className="w-3 h-3" />
+                      </TableHead>
+                      <TableHead className="flex items-center gap-1">
+                        Company
+                        <ArrowUpDown className="w-3 h-3" />
+                      </TableHead>
+                      <TableHead className="flex items-center gap-1">
+                        Arrival Time
+                        <ArrowUpDown className="w-3 h-3" />
+                      </TableHead>
+                      <TableHead className="flex items-center gap-1">
+                        Route
+                        <ArrowUpDown className="w-3 h-3" />
+                      </TableHead>
+                      <TableHead className="flex items-center gap-1">
+                        Price
+                        <ArrowUpDown className="w-3 h-3" />
+                      </TableHead>
+                      <TableHead className="flex items-center gap-1">
+                        Status
+                        <ArrowUpDown className="w-3 h-3" />
+                      </TableHead>
+                      <TableHead className="w-12"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredActivities.map((activity) => (
+                      <TableRow key={activity.id}>
+                        <TableCell>
+                          <Checkbox />
+                        </TableCell>
+                        <TableCell className="font-medium">{activity.orderId}</TableCell>
+                        <TableCell>{activity.category}</TableCell>
+                        <TableCell>{activity.company}</TableCell>
+                        <TableCell>{activity.arrivalTime}</TableCell>
+                        <TableCell>{activity.route}</TableCell>
+                        <TableCell>{activity.price}</TableCell>
+                        <TableCell>
+                          <span className={getStatusColor(activity.status)}>
+                            {activity.status}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="sm">
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Pagination */}
+              <div className="flex items-center justify-between mt-4">
+                <div className="text-sm text-muted-foreground">
+                  1-10 of 50
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm">
+                    <ArrowRight className="w-4 h-4 rotate-180" />
+                  </Button>
+                  <Button variant="outline" size="sm">
+                    <ArrowRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

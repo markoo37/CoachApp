@@ -1,22 +1,32 @@
-import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import AthletesPage from './pages/AthletesPage';
 import LandingPage from './pages/LandingPage';
 import MyTeamsPage from './pages/MyTeamsPage';
-import ProfilePage from './pages/ProfilePage'; // ÚJ import
+import ProfilePage from './pages/ProfilePage';
+import CalendarPage from './pages/CalendarPage';
 import Navbar from './components/Navbar';
 import { useAuthStore } from './store/authStore';
 import Dashboard from './pages/Dashboard';
 import TrainingPlansPage from './pages/TrainingPlansPage';
 import AthleteDetailsPage from './pages/AthleteDetailsPage';
+import TeamDetailsPage from './pages/TeamDetailsPage';
 import Silk from './components/Silk';
-import { Toaster } from './components/ui/toaster';
+import { Toaster } from './components/ui/sonner';
+
+// Create a client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 function AppContent() {
-  const expiry = useAuthStore(state => state.expiry);
-  const logout = useAuthStore(state => state.logout);
   const token = useAuthStore(state => state.token);
   const location = useLocation();
 
@@ -50,8 +60,10 @@ function AppContent() {
         <Route path="/athletes" element={token ? <AthletesPage /> : <Navigate to="/login" />} />
         <Route path="/athletes/:id" element={token ? <AthleteDetailsPage /> : <Navigate to="/login" />} />
         <Route path="/my-teams" element={token ? <MyTeamsPage /> : <Navigate to="/login" />} />
+        <Route path="/teams/:id" element={token ? <TeamDetailsPage /> : <Navigate to="/login" />} />
         <Route path="/training-plans" element={token ? <TrainingPlansPage /> : <Navigate to="/login" />} />
-        <Route path="/profile" element={token ? <ProfilePage /> : <Navigate to="/login" />} /> {/* ÚJ route */}
+        <Route path="/calendar" element={token ? <CalendarPage /> : <Navigate to="/login" />} />  
+        <Route path="/profile" element={token ? <ProfilePage /> : <Navigate to="/login" />} />
       </Routes>
       <Toaster />
     </>
@@ -60,9 +72,11 @@ function AppContent() {
 
 function App() {
   return (
-    <BrowserRouter>
-      <AppContent />
-    </BrowserRouter>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <AppContent />
+      </BrowserRouter>
+    </QueryClientProvider>
   );
 }
 

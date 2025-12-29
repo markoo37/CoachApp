@@ -24,42 +24,42 @@ namespace CoachCRM.Controllers
         [HttpGet("my-teams")]
         public async Task<IActionResult> GetMyTeams()
         {
-            int userId = User.GetUserId();
-            var coach = await _context.Coaches
-                .FirstOrDefaultAsync(c => c.UserId == userId);
-            if (coach == null)
-                return Unauthorized();
+            var userId = User.GetUserId();
 
-            var teams = await _context.Teams
-                .Where(t => t.CoachId == coach.Id && t.Name != "_Unassigned")
-                .Include(t => t.TeamMemberships)
-                .ThenInclude(tm => tm.Athlete)
-                .ThenInclude(a => a.User)
+            var coachId = await _context.Coaches
+                .Where(c => c.UserId == userId)
+                .Select(c => c.Id)
+                .SingleOrDefaultAsync();
+
+            if (coachId == 0) return Unauthorized();
+
+            var result = await _context.Teams
+                .Where(t => t.CoachId == coachId && t.Name != "_Unassigned")
+                .Select(t => new
+                {
+                    t.Id,
+                    t.Name,
+                    Athletes = t.TeamMemberships
+                        .Where(tm => tm.Athlete.UserId != null) // gyorsabb, mint Athlete.User include
+                        .Select(tm => new
+                        {
+                            tm.Athlete.Id,
+                            tm.Athlete.FirstName,
+                            tm.Athlete.LastName,
+                            tm.Athlete.BirthDate,
+                            tm.Athlete.Weight,
+                            tm.Athlete.Height,
+                            tm.Athlete.Email,
+                            HasUserAccount = true
+                        })
+                        .ToList()
+                })
+                .AsNoTracking()
                 .ToListAsync();
-
-            var result = teams.Select(t => new
-            {
-                t.Id,
-                t.Name,
-                Athletes = t.TeamMemberships
-                    // 👉 csak azok a sportolók, akiknek van User-ük (beregisztráltak)
-                    .Where(tm => tm.Athlete != null && tm.Athlete.User != null)
-                    .Select(tm => new
-                    {
-                        tm.Athlete.Id,
-                        tm.Athlete.FirstName,
-                        tm.Athlete.LastName,
-                        tm.Athlete.BirthDate,
-                        tm.Athlete.Weight,
-                        tm.Athlete.Height,
-                        tm.Athlete.Email,
-                        HasUserAccount = true
-                    })
-                    .ToList()
-            });
 
             return Ok(result);
         }
+
 
         // GET: api/teams
         [HttpGet]
@@ -100,6 +100,47 @@ namespace CoachCRM.Controllers
             return CreatedAtAction(nameof(GetTeams), new { id = team.Id }, team.ToDto());
         }
 
+        // GET: api/teams/{id}
+        [HttpGet("{id}")]
+        public async Task<ActionResult> GetTeam(int id)
+        {
+            int userId = User.GetUserId();
+
+            var team = await _context.Teams
+                .AsNoTracking()
+                .Include(t => t.TeamMemberships)
+                .ThenInclude(tm => tm.Athlete)
+                .Include(t => t.Coach)
+                .FirstOrDefaultAsync(t => t.Id == id && t.Coach.UserId == userId);
+
+            if (team == null)
+                return NotFound();
+
+            // Team details DTO (ha nincs még külön, mehet névtelen objectként is)
+            var result = new
+            {
+                team.Id,
+                team.Name,
+                Athletes = team.TeamMemberships
+                    .Where(tm => tm.Athlete.UserId != null) // ugyanaz a logika mint my-teams-nél
+                    .Select(tm => new
+                    {
+                        tm.Athlete.Id,
+                        tm.Athlete.FirstName,
+                        tm.Athlete.LastName,
+                        tm.Athlete.BirthDate,
+                        tm.Athlete.Weight,
+                        tm.Athlete.Height,
+                        tm.Athlete.Email,
+                        HasUserAccount = true
+                    })
+                    .ToList()
+            };
+
+            return Ok(result);
+        }
+        
+        
         // DELETE: api/teams/{id}
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteTeam(int id)

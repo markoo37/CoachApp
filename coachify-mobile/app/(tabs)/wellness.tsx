@@ -1,3 +1,7 @@
+import { Header, SliderRow } from "@/src/components";
+import { createTodayWellnessCheck, getTodayWellnessCheck } from "@/src/services/wellness";
+import { darkColors, lightColors } from "@/src/styles/colors";
+import { MaterialIcons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -8,14 +12,15 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useColorScheme,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Header, LogoutButton, SliderRow } from "@/src/components";
-import { getTodayWellnessCheck, createTodayWellnessCheck } from "@/src/services/wellness";
-import { lightColors } from "@/src/styles/colors";
 
 export default function WellnessScreen() {
+  const colorScheme = useColorScheme();
+  const colors = colorScheme === 'dark' ? darkColors : lightColors;
+  
   const [loading, setLoading] = useState(true);
   const [submitted, setSubmitted] = useState(false);
 
@@ -66,10 +71,10 @@ export default function WellnessScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={lightColors.primary} />
-          <Text style={styles.loadingText}>Betöltés...</Text>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>Betöltés...</Text>
         </View>
       </SafeAreaView>
     );
@@ -78,49 +83,56 @@ export default function WellnessScreen() {
   const disabled = submitted;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
         <Header 
-          title="Napi wellness check" 
-          subtitle="Töltsd ki a mai wellness értékelésedet"
+          title="Wellness" 
+          subtitle="Napi wellness értékelés"
         />
 
         {/* Status Message */}
         {submitted && (
-          <View style={styles.statusCard}>
-            <Text style={styles.statusText}>
-              ✓ A mai napra már kitöltötted a kérdőívet. Az értékeket megtekintheted.
-            </Text>
+          <View style={[styles.statusCard, { backgroundColor: '#d1fae5' }]}>
+            <View style={styles.statusCardContent}>
+              <MaterialIcons name="check-circle" size={24} color="#10b981" />
+              <Text style={[styles.statusText, { color: '#065f46' }]}>
+                A mai napra már kitöltötted a kérdőívet. Az értékeket megtekintheted.
+              </Text>
+            </View>
           </View>
         )}
 
         {/* Wellness Metrics Section */}
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Wellness értékelés</Text>
-          <View style={styles.metricsCard}>
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Wellness értékelés</Text>
+          <View style={[styles.metricsCard, { backgroundColor: colors.card }]}>
             <SliderRow label="Fáradtság" value={fatigue} onChange={setFatigue} disabled={disabled} />
+            <View style={styles.divider} />
             <SliderRow label="Alvás minősége" value={sleepQuality} onChange={setSleepQuality} disabled={disabled} />
+            <View style={styles.divider} />
             <SliderRow label="Izomláz" value={muscleSoreness} onChange={setMuscleSoreness} disabled={disabled} />
+            <View style={styles.divider} />
             <SliderRow label="Stressz" value={stress} onChange={setStress} disabled={disabled} />
+            <View style={styles.divider} />
             <SliderRow label="Hangulat" value={mood} onChange={setMood} disabled={disabled} />
           </View>
         </View>
 
         {/* Comment Section */}
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Megjegyzés</Text>
-          <View style={styles.commentCard}>
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Megjegyzés</Text>
+          <View style={[styles.commentCard, { backgroundColor: colors.card }]}>
             <TextInput
-              style={styles.commentInput}
+              style={[styles.commentInput, { color: colors.foreground }]}
               value={comment}
               editable={!disabled}
               multiline
               placeholder="Opcionális megjegyzés..."
-              placeholderTextColor={lightColors.mutedForeground}
+              placeholderTextColor={colors.mutedForeground}
               onChangeText={setComment}
             />
           </View>
@@ -129,7 +141,7 @@ export default function WellnessScreen() {
         {/* Submit Button */}
         {!submitted && (
           <TouchableOpacity
-            style={styles.submitButton}
+            style={[styles.submitButton, { backgroundColor: colors.primary }]}
             onPress={handleSubmit}
             activeOpacity={0.8}
           >
@@ -145,7 +157,6 @@ export default function WellnessScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: lightColors.background,
   },
   loadingContainer: {
     flex: 1,
@@ -155,88 +166,110 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    color: lightColors.mutedForeground,
     fontWeight: "500",
   },
   scrollContent: {
-    paddingHorizontal: 32,
-    paddingTop: 60,
+    paddingHorizontal: 16,
+    paddingTop: 20,
     paddingBottom: 100,
   },
   statusCard: {
     padding: 16,
-    backgroundColor: Platform.OS === 'ios' ? 'rgba(142, 142, 147, 0.08)' : lightColors.muted,
-    borderRadius: 12,
-    marginBottom: 32,
-    borderWidth: 0.5,
-    borderColor: lightColors.border,
-    shadowColor: Platform.OS === 'ios' ? '#000' : 'transparent',
-    shadowOffset: { width: 0, height: 0.5 },
-    shadowOpacity: Platform.OS === 'ios' ? 0.05 : 0,
-    shadowRadius: 1,
-    elevation: 0,
+    borderRadius: 16,
+    marginBottom: 24,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  statusCardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   statusText: {
-    fontSize: 14,
-    color: lightColors.foreground,
+    fontSize: 15,
     fontWeight: "500",
+    flex: 1,
+    lineHeight: 20,
   },
   sectionContainer: {
-    marginBottom: 32,
+    marginBottom: 24,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: lightColors.foreground,
-    letterSpacing: 0.1,
+    fontSize: 20,
+    fontWeight: "700",
+    letterSpacing: -0.3,
     marginBottom: 16,
   },
   metricsCard: {
-    padding: 24,
-    borderWidth: 0.5,
-    borderColor: lightColors.border,
-    borderRadius: 12,
-    backgroundColor: Platform.OS === 'ios' ? 'rgba(142, 142, 147, 0.08)' : lightColors.card,
-    gap: 24,
-    shadowColor: Platform.OS === 'ios' ? '#000' : 'transparent',
-    shadowOffset: { width: 0, height: 0.5 },
-    shadowOpacity: Platform.OS === 'ios' ? 0.05 : 0,
-    shadowRadius: 1,
-    elevation: 0,
+    padding: 20,
+    borderRadius: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    marginVertical: 16,
   },
   commentCard: {
     padding: 16,
-    borderWidth: 0.5,
-    borderColor: lightColors.border,
-    borderRadius: 12,
-    backgroundColor: Platform.OS === 'ios' ? 'rgba(142, 142, 147, 0.08)' : lightColors.card,
-    shadowColor: Platform.OS === 'ios' ? '#000' : 'transparent',
-    shadowOffset: { width: 0, height: 0.5 },
-    shadowOpacity: Platform.OS === 'ios' ? 0.05 : 0,
-    shadowRadius: 1,
-    elevation: 0,
+    borderRadius: 16,
+    minHeight: 120,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   commentInput: {
     minHeight: 100,
-    fontSize: 17,
-    color: lightColors.foreground,
+    fontSize: 16,
     textAlignVertical: "top",
   },
   submitButton: {
-    height: 50,
-    backgroundColor: lightColors.primary,
-    borderRadius: 12,
+    height: 56,
+    borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 16,
-    shadowColor: lightColors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    marginTop: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   submitButtonText: {
-    color: lightColors.primaryForeground,
+    color: '#ffffff',
     fontSize: 17,
     fontWeight: "600",
     letterSpacing: 0.2,
