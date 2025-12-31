@@ -8,7 +8,7 @@ import type {
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
-import { format } from "date-fns";
+import { format, subDays } from "date-fns";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -55,6 +55,13 @@ export type CalendarSchedulerProps = {
   initialView?: CalendarSchedulerView;
   onAddEvent?: () => void;
   onEventClick?: (event: CalendarSchedulerEvent) => void;
+  onRangeChange?: (range: {
+    /** Inclusive start date of the visible range. */
+    from: Date;
+    /** Inclusive end date of the visible range. */
+    to: Date;
+    view: CalendarSchedulerView;
+  }) => void;
 };
 
 function toFullCalendarView(view: CalendarSchedulerView) {
@@ -76,6 +83,7 @@ export default function CalendarScheduler({
   initialView = "week",
   onAddEvent,
   onEventClick,
+  onRangeChange,
 }: CalendarSchedulerProps) {
   const calendarRef = useRef<FullCalendar | null>(null);
   const [activeView, setActiveView] = useState<CalendarSchedulerView>(initialView);
@@ -128,6 +136,17 @@ export default function CalendarScheduler({
 
   const onDatesSet = (arg: DatesSetArg) => {
     setTitle(arg.view.title);
+
+    // FullCalendar gives an exclusive `end` (range is [start, end))
+    // Backend expects inclusive DateOnly range, so we convert `endExclusive` -> `toInclusive`.
+    const endExclusive = arg.end;
+    const toInclusive = subDays(endExclusive, 1);
+
+    onRangeChange?.({
+      from: arg.start,
+      to: toInclusive,
+      view: activeView,
+    });
   };
 
   const handleEventClick = (arg: EventClickArg) => {
@@ -235,14 +254,14 @@ export default function CalendarScheduler({
                 dayMaxEvents={true}
                 height="100%"
                 expandRows={true}
-                slotMinTime="06:00:00"
-                slotMaxTime="21:00:00"
+                slotMinTime="00:00:00"
+                slotMaxTime="24:00:00"
                 allDaySlot={false}
                 events={fcEvents}
                 datesSet={onDatesSet}
                 eventClick={handleEventClick}
-                eventTimeFormat={{ hour: "numeric", minute: "2-digit", meridiem: "short" }}
-                slotLabelFormat={{ hour: "numeric", minute: "2-digit", meridiem: "short" }}
+                eventTimeFormat={{ hour: "2-digit", minute: "2-digit", hour12: false }}
+                slotLabelFormat={{ hour: "2-digit", minute: "2-digit", hour12: false }}
                 viewDidMount={() => {
                   // keep local state aligned on first mount
                   const d = api()?.getDate() ?? initialDate;
@@ -281,11 +300,11 @@ export default function CalendarScheduler({
                       <div className="text-sm text-muted-foreground">
                         {format(new Date(selectedEvent.start), "EEEE, MMM d, yyyy")}
                         {selectedEvent.end
-                          ? ` • ${format(new Date(selectedEvent.start), "p")} – ${format(
+                          ? ` • ${format(new Date(selectedEvent.start), "HH:mm")} – ${format(
                               new Date(selectedEvent.end),
-                              "p"
+                              "HH:mm"
                             )}`
-                          : ` • ${format(new Date(selectedEvent.start), "p")}`}
+                          : ` • ${format(new Date(selectedEvent.start), "HH:mm")}`}
                       </div>
 
                       {selectedEvent.location ? (

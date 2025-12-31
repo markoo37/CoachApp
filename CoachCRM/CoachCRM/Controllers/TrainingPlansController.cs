@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices.JavaScript;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using CoachCRM.Data;
@@ -72,6 +73,11 @@ namespace CoachCRM.Controllers
         [HttpPost]
         public async Task<ActionResult<TrainingPlanDto>> PostTrainingPlan(CreateTrainingPlanDto dto)
         {
+            if (IsInvalidTimeRange(dto, out var error))
+            {
+                return BadRequest(error);
+            }
+            
             int userId = User.GetUserId();
 
             TrainingPlan plan;
@@ -136,6 +142,11 @@ namespace CoachCRM.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> PutTrainingPlan(int id, CreateTrainingPlanDto dto)
         {
+            if (IsInvalidTimeRange(dto, out var error))
+            {
+                return BadRequest(error);
+            }
+            
             int userId = User.GetUserId();
 
             var plan = await _context.TrainingPlans
@@ -185,6 +196,54 @@ namespace CoachCRM.Controllers
             _context.TrainingPlans.Remove(plan);
             await _context.SaveChangesAsync();
             return NoContent();
+        }
+        
+        // GET: api/trainingplans/range?from={from_date}&to={to_date}
+        [HttpGet("range")]
+        public async Task<ActionResult<IEnumerable<TrainingPlanDto>>> GetTrainingPlansInRange([FromQuery] DateOnly from, [FromQuery] DateOnly to)
+        {
+            int userId = User.GetUserId();
+
+            var plans = await _context.TrainingPlans
+                .Include(plan => plan.Team)
+                .Include(plan => plan.Athlete)
+                .ThenInclude(athlete => athlete.TeamMemberships)
+                .ThenInclude(teammembership => teammembership.Team)
+                .ThenInclude(team => team.Coach)
+                .Where(plan => plan.Date >= from && plan.Date <= to && (
+                    (plan.Team != null && plan.Team.Coach.UserId == userId) ||
+                    (plan.Athlete != null && plan.Athlete.TeamMemberships.Any(membership => membership.Team.Coach.UserId == userId))
+                )).ToListAsync();
+            
+            return Ok(plans.Select(plan => plan.ToDto()).ToList());
+        } 
+        
+        private static bool IsInvalidTimeRange(CreateTrainingPlanDto dto, out string error)
+        {
+            var start = dto.Date.ToDateTime(dto.StartTime);
+            var end   = dto.Date.ToDateTime(dto.EndTime);
+
+            DateOnly now = new DateOnly(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day);
+            if (dto.Date < now)
+            {
+                error = "Az új esemény dátuma nem lehet múltbéli dátum!";
+                return true;
+            }
+            
+            if (end <= start)
+            {
+                error = "Az esemény kezdete előbb kell hogy legyen, mint a végének!";
+                return true;
+            }
+
+            if ((end - start).TotalMinutes < 10)
+            {
+                error = "Az edzésnek minimum 10 perc hosszúnak kell lennie";
+                return true;
+            }
+
+            error = "";
+            return false;
         }
     }
 }

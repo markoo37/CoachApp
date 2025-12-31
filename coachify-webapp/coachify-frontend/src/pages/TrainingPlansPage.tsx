@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import axios from 'axios';
 import api from '../api/api';
 import TopHeader from '../components/TopHeader';
 import {
@@ -223,8 +224,8 @@ export default function TrainingPlansPage() {
   };
 
   const handleSubmitPlan = async () => {
-    const { Name, Description, Date, StartTime, EndTime, AthleteId, TeamId } = formData;
-    if (!Name || !Description || !Date || 
+    const { Name, Description, Date: planDate, StartTime, EndTime, AthleteId, TeamId } = formData;
+    if (!Name || !Description || !planDate || 
         (assignTo === 'Athlete' ? !AthleteId : !TeamId)) {
       toast.error('Kérlek tölts ki minden szükséges mezőt.');
       return;
@@ -234,7 +235,9 @@ export default function TrainingPlansPage() {
       const payload = {
         Name,
         Description,
-        Date: Date.toISOString().split('T')[0], // Convert to YYYY-MM-DD
+        // IMPORTANT: Do NOT use toISOString() here (UTC) or the date can shift by timezone.
+        // Backend expects a DateOnly-like "YYYY-MM-DD".
+        Date: format(planDate, 'yyyy-MM-dd'),
         StartTime: StartTime || null,
         EndTime: EndTime || null,
         AthleteId: assignTo === 'Athlete' ? Number(AthleteId) : null,
@@ -251,8 +254,40 @@ export default function TrainingPlansPage() {
       setAthleteComboboxOpen(false);
       setTeamComboboxOpen(false);
       toast.success('Edzésterv létrehozva!');
-    } catch {
-      toast.error('Nem sikerült létrehozni az edzéstervet.');
+    } catch (err: unknown) {
+      console.error(err);
+
+      const backendMessage = (() => {
+        if (!axios.isAxiosError(err)) return null;
+        const data = err.response?.data;
+        if (!data) return null;
+
+        // Backend may send plain text
+        if (typeof data === 'string') return data;
+
+        // Or structured payloads (e.g. ASP.NET ProblemDetails / custom DTO)
+        if (typeof data === 'object') {
+          const anyData = data as any;
+
+          if (typeof anyData.message === 'string' && anyData.message.trim()) return anyData.message;
+          if (typeof anyData.detail === 'string' && anyData.detail.trim()) return anyData.detail;
+
+          // Validation errors: { errors: { Field: ["msg1","msg2"] } }
+          const errors = anyData.errors;
+          if (errors && typeof errors === 'object') {
+            const messages = Object.values(errors)
+              .flat()
+              .filter((v) => typeof v === 'string' && v.trim()) as string[];
+            if (messages.length) return messages.join('\n');
+          }
+
+          if (typeof anyData.title === 'string' && anyData.title.trim()) return anyData.title;
+        }
+
+        return null;
+      })();
+
+      toast.error(backendMessage ?? 'Nem sikerült létrehozni az edzéstervet.');
     } finally {
       setIsSubmitting(false);
     }
@@ -299,8 +334,10 @@ export default function TrainingPlansPage() {
   // Generate time options (every 15 minutes)
   const generateTimeOptions = () => {
     const times: string[] = [];
-    for (let hour = 0; hour < 24; hour++) {
+    // Only allow selecting times between 06:00 and 22:00 (inclusive)
+    for (let hour = 6; hour <= 22; hour++) {
       for (let minute = 0; minute < 60; minute += 15) {
+        if (hour === 22 && minute > 0) break; // keep last option at exactly 22:00
         const h = hour.toString().padStart(2, '0');
         const m = minute.toString().padStart(2, '0');
         times.push(`${h}:${m}`);

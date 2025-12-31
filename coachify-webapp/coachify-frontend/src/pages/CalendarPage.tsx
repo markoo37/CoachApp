@@ -2,61 +2,44 @@ import TopHeader from "@/components/TopHeader";
 import CalendarScheduler, {
   type CalendarSchedulerEvent,
 } from "@/components/calendar/CalendarScheduler";
+import { useMemo, useState } from "react";
+import { useTrainingPlansInRangeQuery } from "@/queries/trainingPlans.queries";
 
 export default function CalendarPage() {
-  // Sample data (replace with API-backed events later)
-  const events: CalendarSchedulerEvent[] = [
-    {
-      id: "team-lunch",
-      title: "Team lunch",
-      start: new Date(2025, 11, 29, 13, 15),
-      end: new Date(2025, 11, 29, 14, 15),
-      description: "Quick lunch with the team.",
-      color: "#7c1d3a",
-      textColor: "#fff",
-    },
-    {
-      id: "design-sync",
-      title: "Design sync",
-      start: new Date(2025, 11, 31, 15, 30),
-      end: new Date(2025, 11, 31, 16, 30),
-      color: "#1d4ed8",
-      textColor: "#fff",
-    },
-    {
-      id: "accountant",
-      title: "Accountant",
-      start: new Date(2026, 0, 2, 14, 45),
-      end: new Date(2026, 0, 2, 15, 15),
-      color: "#a16207",
-      textColor: "#fff",
-    },
-    {
-      id: "marketing-sync",
-      title: "Marketing site sync",
-      start: new Date(2026, 0, 2, 15, 30),
-      end: new Date(2026, 0, 2, 16, 0),
-      color: "#374151",
-      textColor: "#fff",
-    },
-    {
-      id: "product-demo",
-      title: "Product demo",
-      start: new Date(2025, 11, 19, 14, 30),
-      end: new Date(2025, 11, 19, 15, 30),
-      description: "Demo + Q&A.",
-      attendees: [
-        { name: "Sienna" },
-        { name: "Olivia" },
-        { name: "Riley" },
-        { name: "Noah" },
-        { name: "Mila" },
-        { name: "Ethan" },
-      ],
-      color: "#2563eb",
-      textColor: "#fff",
-    },
-  ];
+  const [range, setRange] = useState<{ from?: Date; to?: Date }>({});
+
+  const { data: plans = [] } = useTrainingPlansInRangeQuery(range.from, range.to);
+
+  const events: CalendarSchedulerEvent[] = useMemo(() => {
+    const parseLocalDateTime = (dateOnly: string, timeOnly?: string) => {
+      // dateOnly: YYYY-MM-DD
+      const [y, m, d] = dateOnly.split("-").map(Number);
+      const [hh = 0, mm = 0, ss = 0] = (timeOnly ?? "09:00:00")
+        .split(":")
+        .map((p) => Number(p));
+      return new Date(y, m - 1, d, hh, mm, ss);
+    };
+
+    return plans.map((p) => {
+      const start = parseLocalDateTime(p.Date, p.StartTime);
+      const end = p.EndTime
+        ? parseLocalDateTime(p.Date, p.EndTime)
+        : new Date(start.getTime() + 60 * 60 * 1000);
+
+      const target = p.AthleteName ?? p.TeamName;
+      const title = target ? `${p.Name} • ${target}` : p.Name;
+
+      return {
+        id: String(p.Id),
+        title,
+        start,
+        end,
+        description: p.Description,
+        color: "#2563eb",
+        textColor: "#fff",
+      };
+    });
+  }, [plans]);
 
   return (
     <div className="min-h-screen bg-background lg:pl-64">
@@ -67,6 +50,7 @@ export default function CalendarPage() {
           events={events}
           initialDate={new Date(2025, 11, 29)}
           initialView="day"
+          onRangeChange={({ from, to }) => setRange({ from, to })}
           onAddEvent={() => {}}
         />
       </div>
