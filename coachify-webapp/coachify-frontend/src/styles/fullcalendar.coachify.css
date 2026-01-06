@@ -80,6 +80,73 @@
   padding: 2px 8px;
 }
 
+/* Event "cards": outline + subtle depth (helps separate overlapping events) */
+.coachify-calendar .fc .fc-timegrid-event,
+.coachify-calendar .fc .fc-daygrid-event {
+  overflow: hidden;
+  transition: transform 140ms ease, box-shadow 140ms ease, filter 140ms ease;
+  box-shadow:
+    0 0 0 1px rgb(var(--border) / 0.65),
+    0 10px 24px rgb(0 0 0 / 0.08);
+}
+
+.dark .coachify-calendar .fc .fc-timegrid-event,
+.dark .coachify-calendar .fc .fc-daygrid-event {
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.16),
+    0 14px 32px rgb(0 0 0 / 0.35);
+}
+
+/* Make the hovered event sit above neighbors */
+.coachify-calendar .fc .fc-timegrid-event-harness:hover,
+.coachify-calendar .fc .fc-daygrid-event-harness:hover {
+  z-index: 20;
+}
+
+.coachify-calendar .fc .fc-timegrid-event:hover,
+.coachify-calendar .fc .fc-daygrid-event:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.02);
+  box-shadow:
+    0 0 0 1px rgb(var(--primary) / 0.55),
+    0 18px 40px rgb(0 0 0 / 0.16);
+}
+
+.dark .coachify-calendar .fc .fc-timegrid-event:hover,
+.dark .coachify-calendar .fc .fc-daygrid-event:hover {
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.22),
+    0 20px 46px rgb(0 0 0 / 0.55);
+}
+
+/* Subtle gradient highlight like a "card" */
+.coachify-calendar .fc .fc-timegrid-event .fc-event-main,
+.coachify-calendar .fc .fc-daygrid-event .fc-event-main {
+  position: relative;
+}
+
+.coachify-calendar .fc .fc-timegrid-event .fc-event-main::before,
+.coachify-calendar .fc .fc-daygrid-event .fc-event-main::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    rgb(255 255 255 / 0.14),
+    rgb(255 255 255 / 0.05) 40%,
+    rgb(0 0 0 / 0.08)
+  );
+  opacity: 0.35;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .coachify-calendar .fc .fc-timegrid-event,
+  .coachify-calendar .fc .fc-daygrid-event {
+    transition: none;
+  }
+}
+
 /* Hover affordance for day cells (subtle) */
 .coachify-calendar .fc .fc-timegrid-col-frame:hover,
 .coachify-calendar .fc .fc-daygrid-day-frame:hover {

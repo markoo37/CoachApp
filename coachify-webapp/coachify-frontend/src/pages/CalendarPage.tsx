@@ -1,5 +1,6 @@
 import TopHeader from "@/components/TopHeader";
 import CalendarScheduler, {
+  type CalendarSchedulerView,
   type CalendarSchedulerEvent,
 } from "@/components/calendar/CalendarScheduler";
 import { useMemo, useState } from "react";
@@ -41,6 +42,27 @@ export default function CalendarPage() {
     });
   }, [plans]);
 
+  const STORAGE_KEY = "coachify.calendar.state.v1";
+
+  const readSavedCalendarState = (): { date: Date; view: CalendarSchedulerView } | null => {
+    try {
+      const raw = sessionStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as { date?: string; view?: CalendarSchedulerView };
+      if (!parsed?.date || !parsed?.view) return null;
+      const d = new Date(parsed.date);
+      if (Number.isNaN(d.getTime())) return null;
+      if (!["day", "week", "month"].includes(parsed.view)) return null;
+      return { date: d, view: parsed.view };
+    } catch {
+      return null;
+    }
+  };
+
+  const saved = readSavedCalendarState();
+  const initialDate = saved?.date ?? new Date();
+  const initialView: CalendarSchedulerView = saved?.view ?? "week";
+
   return (
     <div className="min-h-screen bg-background lg:pl-64">
       <TopHeader title="Naptár" subtitle="Időbeosztás és események" />
@@ -48,9 +70,19 @@ export default function CalendarPage() {
       <div className="px-6 py-8 lg:px-8">
         <CalendarScheduler
           events={events}
-          initialDate={new Date(2025, 11, 29)}
-          initialView="day"
-          onRangeChange={({ from, to }) => setRange({ from, to })}
+          initialDate={initialDate}
+          initialView={initialView}
+          onRangeChange={({ from, to, currentDate, view }) => {
+            setRange({ from, to });
+            try {
+              sessionStorage.setItem(
+                STORAGE_KEY,
+                JSON.stringify({ date: currentDate.toISOString(), view })
+              );
+            } catch {
+              // ignore storage errors (private mode/quota)
+            }
+          }}
           onAddEvent={() => {}}
         />
       </div>

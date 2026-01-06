@@ -60,6 +60,8 @@ export type CalendarSchedulerProps = {
     from: Date;
     /** Inclusive end date of the visible range. */
     to: Date;
+    /** Calendar "current" date (what FullCalendar considers the active date). */
+    currentDate: Date;
     view: CalendarSchedulerView;
   }) => void;
 };
@@ -74,6 +76,12 @@ function viewLabel(view: CalendarSchedulerView) {
   if (view === "day") return "Day view";
   if (view === "week") return "Week view";
   return "Month view";
+}
+
+function fromFullCalendarViewType(type: string): CalendarSchedulerView {
+  if (type === "timeGridDay") return "day";
+  if (type === "timeGridWeek") return "week";
+  return "month";
 }
 
 export default function CalendarScheduler({
@@ -142,10 +150,14 @@ export default function CalendarScheduler({
     const endExclusive = arg.end;
     const toInclusive = subDays(endExclusive, 1);
 
+    const view = fromFullCalendarViewType(arg.view.type);
+    const currentDate = api()?.getDate() ?? arg.start;
+
     onRangeChange?.({
       from: arg.start,
       to: toInclusive,
-      view: activeView,
+      currentDate,
+      view,
     });
   };
 
@@ -158,6 +170,14 @@ export default function CalendarScheduler({
 
   const setView = (view: CalendarSchedulerView) => {
     setActiveView(view);
+    if (view === "day") {
+      const today = new Date();
+      setSelectedDate(today);
+      // Ensure day view always opens on "today" (not the previously viewed date)
+      api()?.changeView(toFullCalendarView(view), today);
+      return;
+    }
+
     api()?.changeView(toFullCalendarView(view));
   };
 
