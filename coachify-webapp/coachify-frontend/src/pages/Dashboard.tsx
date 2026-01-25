@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import api from '../api/api';
 import TopHeader from '../components/TopHeader';
+import { useSidebarPadding } from '../hooks/useSidebarPadding';
 
 // Shadcn/ui imports
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -84,6 +85,7 @@ interface HeatmapData {
 
 export default function Dashboard() {
   const { firstName } = useAuthStore();
+  const sidebarPadding = useSidebarPadding();
   const [stats, setStats] = useState<DashboardStats>({
     teamCount: 0,
     athleteCount: 0,
@@ -266,7 +268,7 @@ export default function Dashboard() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background lg:pl-64 flex items-center justify-center">
+      <div className={`min-h-screen bg-background flex items-center justify-center transition-all duration-300 ease-in-out ${sidebarPadding}`}>
         <div className="flex flex-col items-center space-y-4">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="text-muted-foreground">Dashboard betöltése...</p>
@@ -283,7 +285,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-background lg:pl-64">
+    <div className={`min-h-screen bg-background transition-all duration-300 ease-in-out ${sidebarPadding}`}>
       <TopHeader title="Főoldal" />
       
       <div className="px-6 lg:px-8 py-8">

@@ -1,6 +1,7 @@
 ﻿using CoachCRM.Data;
 using CoachCRM.Dtos;
 using CoachCRM.Extensions;
+using CoachCRM.Guards;
 using CoachCRM.Models;
 using CoachCRM.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -107,36 +108,24 @@ public class WellnessChecksController : ControllerBase
         int teamId,
         [FromQuery] DateOnly? date)
     {
-        int userId = User.GetUserId();
+        var coachId = User.RequireCoachId();
 
-        var coach = await _context.Coaches
-            .FirstOrDefaultAsync(c => c.UserId == userId);
-
-        if (coach == null)
-            return Unauthorized("Coach not found.");
-
-        // Csak a saját csapatát láthassa
-        var team = await _context.Teams
-            .FirstOrDefaultAsync(t => t.Id == teamId && t.CoachId == coach.Id);
-
-        if (team == null)
+        var ownsTeam = await _context.CoachOwnsTeamAsync(coachId, teamId);
+        if (!ownsTeam)
             return Forbid("This team does not belong to the current coach.");
 
         var targetDate = date ?? DateOnly.FromDateTime(DateTime.UtcNow.Date);
 
         var checks = await _context.WellnessChecks
+            .AsNoTracking()
             .Include(w => w.Athlete)
-                .ThenInclude(a => a.TeamMemberships)
+            .ThenInclude(a => a.TeamMemberships)
             .Where(w =>
                 w.Date == targetDate &&
                 w.Athlete.TeamMemberships.Any(tm => tm.TeamId == teamId))
             .ToListAsync();
 
-        var dtoList = checks
-            .Select(w => w.ToDto())
-            .ToList();
-
-        return Ok(dtoList);
+        return Ok(checks.Select(w => w.ToDto()).ToList());
     }
     
     // GET: api/wellnesschecks/athletes/{athleteId}?days=7

@@ -15,6 +15,7 @@ import AthleteDetailsPage from './pages/AthleteDetailsPage';
 import TeamDetailsPage from './pages/TeamDetailsPage';
 import Silk from './components/Silk';
 import { Toaster } from './components/ui/sonner';
+import { SidebarProvider } from './contexts/SidebarContext';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -74,7 +75,9 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <AppContent />
+        <SidebarProvider>
+          <AppContent />
+        </SidebarProvider>
       </BrowserRouter>
     </QueryClientProvider>
   );

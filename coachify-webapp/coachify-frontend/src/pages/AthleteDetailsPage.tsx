@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import api from "../api/api";
 import TopHeader from "../components/TopHeader";
+import { useSidebarPadding } from "../hooks/useSidebarPadding";
 import { PageBreadcrumb, useBreadcrumbItems } from "../components/PageBreadcrumb";
 import { getAthleteWellness, WellnessCheck } from "../api/wellness";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
@@ -35,6 +36,7 @@ interface AthleteDetails {
 export default function AthleteDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const athleteId = Number(id);
+  const sidebarPadding = useSidebarPadding();
 
   const [wellnessSummaryTimeRange, setWellnessSummaryTimeRange] = useState<TimeRange>("7d");
   const [timeRange, setTimeRange] = useState<TimeRange>("30d");
@@ -262,7 +264,7 @@ export default function AthleteDetailsPage() {
 
   if (athleteQuery.isLoading) {
     return (
-      <div className="min-h-screen bg-background lg:pl-64 flex items-center justify-center">
+      <div className={`min-h-screen bg-background flex items-center justify-center transition-all duration-300 ease-in-out ${sidebarPadding}`}>
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
@@ -271,7 +273,7 @@ export default function AthleteDetailsPage() {
   if (errorMessage || !athlete) {
     const errorBreadcrumbItems = useBreadcrumbItems("Hiba");
     return (
-      <div className="min-h-screen bg-background lg:pl-64">
+      <div className={`min-h-screen bg-background transition-all duration-300 ease-in-out ${sidebarPadding}`}>
         <TopHeader title="Sportoló részletei" />
         <div className="p-8 max-w-7xl mx-auto">
           <PageBreadcrumb items={errorBreadcrumbItems} />
@@ -282,7 +284,7 @@ export default function AthleteDetailsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background lg:pl-64">
+    <div className={`min-h-screen bg-background transition-all duration-300 ease-in-out ${sidebarPadding}`}>
       <TopHeader title={fullName} subtitle={athlete.email} />
       
       <div className="p-8">

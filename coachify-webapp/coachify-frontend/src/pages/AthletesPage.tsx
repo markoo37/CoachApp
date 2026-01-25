@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/api';
 import TopHeader from '../components/TopHeader';
+import { useSidebarPadding } from '../hooks/useSidebarPadding';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardTitle, CardDescription } from '@/components/ui/card';
@@ -89,6 +90,7 @@ type ViewMode = 'grid' | 'list';
 
 export default function AthletesPage() {
   const queryClient = useQueryClient();
+  const sidebarPadding = useSidebarPadding();
   const [showAddForm, setShowAddForm] = useState(false);
   const [addEmail, setAddEmail] = useState('');
   const [deletingAthleteId, setDeletingAthleteId] = useState<number | null>(null);
@@ -313,7 +315,7 @@ export default function AthletesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background lg:pl-64">
+    <div className={`min-h-screen bg-background transition-all duration-300 ease-in-out ${sidebarPadding}`}>
       <TopHeader title="Összes sportolóm" subtitle={`${filteredAthletes.length} sportoló${searchQuery ? ` (${athletes.length} összesen)` : ''}`} />
       
       <div className="p-8">

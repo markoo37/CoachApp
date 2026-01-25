@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import api from "../api/api";
 import TopHeader from "../components/TopHeader";
+import { useSidebarPadding } from "../hooks/useSidebarPadding";
 import { PageBreadcrumb, useBreadcrumbItems } from "../components/PageBreadcrumb";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -37,6 +38,7 @@ interface AvailableAthlete {
 export default function TeamDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const teamId = Number(id);
+  const sidebarPadding = useSidebarPadding();
 
   const [teamWellnessTimeRange, setTeamWellnessTimeRange] = useState<TimeRange>("30d");
   const [teamMembersView, setTeamMembersView] = useState<"list" | "icons">("icons");
@@ -288,7 +290,7 @@ export default function TeamDetailsPage() {
 
   if (teamQuery.isLoading) {
     return (
-      <div className="min-h-screen bg-background lg:pl-64 flex items-center justify-center">
+      <div className={`min-h-screen bg-background flex items-center justify-center transition-all duration-300 ease-in-out ${sidebarPadding}`}>
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
@@ -296,7 +298,7 @@ export default function TeamDetailsPage() {
 
   if (teamError || !team) {
     return (
-      <div className="min-h-screen bg-background lg:pl-64">
+      <div className={`min-h-screen bg-background transition-all duration-300 ease-in-out ${sidebarPadding}`}>
         <TopHeader title="Csapat részletei" />
         <div className="p-8 max-w-3xl mx-auto">
           <PageBreadcrumb items={breadcrumbItems} />
@@ -307,7 +309,7 @@ export default function TeamDetailsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background lg:pl-64">
+    <div className={`min-h-screen bg-background transition-all duration-300 ease-in-out ${sidebarPadding}`}>
       <TopHeader title={team.name} subtitle={`${rosterWellness.length} sportoló`} />
       
       <div className="p-8">

@@ -5,8 +5,10 @@ import CalendarScheduler, {
 } from "@/components/calendar/CalendarScheduler";
 import { useMemo, useState } from "react";
 import { useTrainingPlansInRangeQuery } from "@/queries/trainingPlans.queries";
+import { useSidebarPadding } from "../hooks/useSidebarPadding";
 
 export default function CalendarPage() {
+  const sidebarPadding = useSidebarPadding();
   const [range, setRange] = useState<{ from?: Date; to?: Date }>({});
 
   const { data: plans = [] } = useTrainingPlansInRangeQuery(range.from, range.to);
@@ -64,7 +66,7 @@ export default function CalendarPage() {
   const initialView: CalendarSchedulerView = saved?.view ?? "week";
 
   return (
-    <div className="min-h-screen bg-background lg:pl-64">
+    <div className={`min-h-screen bg-background transition-all duration-300 ease-in-out ${sidebarPadding}`}>
       <TopHeader title="Naptár" subtitle="Időbeosztás és események" />
 
       <div className="px-6 py-8 lg:px-8">

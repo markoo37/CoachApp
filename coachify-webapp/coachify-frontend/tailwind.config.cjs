@@ -21,6 +21,8 @@ module.exports = {
   			'pulse-slow': 'pulse 3s infinite',
   			'star-movement-bottom': 'star-movement-bottom linear infinite alternate',
   			'star-movement-top': 'star-movement-top linear infinite alternate',
+  			'expand': 'expand 0.3s ease-out',
+  			'expand-vertical': 'expand-vertical 0.3s ease-out',
   		},
   		keyframes: {
   			fadeIn: {
@@ -48,6 +50,26 @@ module.exports = {
   			'star-movement-top': {
   				'0%': { transform: 'translate(0%, 0%)', opacity: '1' },
   				'100%': { transform: 'translate(100%, 0%)', opacity: '0' },
+  			},
+  			expand: {
+  				'0%': {
+  					width: '0px',
+  					opacity: '0'
+  				},
+  				'100%': {
+  					width: '1.5rem',
+  					opacity: '1'
+  				}
+  			},
+  			'expand-vertical': {
+  				'0%': {
+  					height: '0px',
+  					opacity: '0'
+  				},
+  				'100%': {
+  					height: '2rem',
+  					opacity: '1'
+  				}
   			},
   		},
   		backdropBlur: {

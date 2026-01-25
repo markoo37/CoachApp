@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 import api from '../api/api';
 import TopHeader from '../components/TopHeader';
+import { useSidebarPadding } from '../hooks/useSidebarPadding';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -88,6 +89,7 @@ interface FormDataState {
 
 export default function TrainingPlansPage() {
   const queryClient = useQueryClient();
+  const sidebarPadding = useSidebarPadding();
   const [showAddForm, setShowAddForm] = useState(false);
   const [assignTo, setAssignTo] = useState<'Athlete' | 'Team'>('Athlete');
   const [deletingPlanId, setDeletingPlanId] = useState<number | null>(null);
@@ -356,7 +358,7 @@ export default function TrainingPlansPage() {
 
   return (
     <>
-      <div className="min-h-screen bg-background lg:pl-64">
+      <div className={`min-h-screen bg-background transition-all duration-300 ease-in-out ${sidebarPadding}`}>
         <TopHeader title="Edzéstervek" subtitle="Edzéstervek kezelése és hozzárendelése" />
         
         <div className="px-8 py-16">

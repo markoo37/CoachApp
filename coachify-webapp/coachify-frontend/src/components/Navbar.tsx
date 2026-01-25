@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import { useSidebar } from '../contexts/SidebarContext';
 import { 
   Bars3Icon, 
   XMarkIcon, 
   UserCircleIcon,
-  ArrowRightOnRectangleIcon,
   HomeIcon,
   UserGroupIcon,
   ChartBarIcon,
@@ -15,16 +15,13 @@ import {
 import ThemeToggle from './ThemeToggle';
 import gruadLogoLight from '../assets/gruad_notext.png';
 import gruadLogoDark from '../assets/gruad_notext.png';
-import api from '../api/api';
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const { isSidebarExpanded, setIsSidebarExpanded } = useSidebar();
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const location = useLocation();
-  const navigate = useNavigate();
-  const { token, email, firstName, lastName, logout } = useAuthStore();
-  const profileDropdownRef = useRef<HTMLDivElement>(null);
+  const { token } = useAuthStore();
 
   useEffect(() => {
     // Check theme on component mount and when it changes
@@ -43,32 +40,11 @@ export default function Navbar() {
       attributeFilter: ['class'],
     });
 
-    // Click outside handler for profile dropdown
-    const handleClickOutside = (event: MouseEvent) => {
-      if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target as Node)) {
-        setIsProfileOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
     return () => {
       observer.disconnect();
-      document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
 
-  const handleLogout = async () => {
-    try {
-      await api.post('/auth/logout'); // ⬅ backend: refreshToken revoke + cookie törlés
-    } catch (error) {
-      console.error('Logout error:', error);
-      // ha a backend valamiért elszáll, akkor is kiléptetjük frontenden
-    } finally {
-      logout();               // ⬅ frontend: Zustand store ürítése
-      navigate('/');          // vagy '/login', ahova szeretnéd
-      setIsProfileOpen(false);
-    }
-  };  
 
   const navigation = [
     { name: 'Főoldal',      href: '/dashboard',      icon: HomeIcon,       current: location.pathname === '/dashboard' },
@@ -155,27 +131,26 @@ export default function Navbar() {
                     to={item.href}
                     onClick={() => setIsOpen(false)}
                     className={`
-                      relative flex items-center px-3 py-2 rounded-lg text-base font-medium
-                      transition-colors duration-300 ease-in-out overflow-hidden will-change-[background-color,color]
+                      relative flex items-center px-3 py-2 rounded-lg text-base font-normal
+                      transition-colors overflow-hidden antialiased
                       ${item.current
                         ? 'bg-primary text-primary-foreground'
                         : 'text-muted-foreground hover:text-primary-foreground'
                       }
                     `}
                   >
-                    {/* Smooth background animation */}
+                    {/* Background */}
                     <div
                       className={`
                         absolute inset-0 bg-primary rounded-lg
-                        transition-all duration-300 ease-in-out will-change-transform
                         ${item.current
                           ? 'translate-y-0 opacity-100'
                           : 'translate-y-full opacity-0'
                         }
                       `}
                     />
-                    <Icon className="relative z-10 h-5 w-5 mr-3 transition-colors duration-300 ease-in-out will-change-colors" />
-                    <span className="relative z-10">{item.name}</span>
+                    <Icon className="relative z-10 h-5 w-5 mr-3" />
+                    <span className="relative z-10 antialiased">{item.name}</span>
                   </Link>
                 );
               })}
@@ -184,67 +159,127 @@ export default function Navbar() {
         )}
       </div>
 
-      {/* Desktop sidebar */}
-      <div className="hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:w-64 lg:bg-background lg:border-r lg:border-border">
-        {/* Logo */}
-        <div className="flex-shrink-0 h-20 px-6 flex items-center border-b border-border">
-          <Link to="/" className="flex items-center">
-            <LogoComponent />
-            <span className="ml-3 text-xl font-bold text-foreground tracking-tight">DEM</span>
-          </Link>
+      {/* Desktop sidebar - Neumorphic Design */}
+      <div className={`hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 bg-muted border-r border-border transition-[width] duration-300 ease-in-out ${
+        isSidebarExpanded ? 'lg:w-64' : 'lg:w-20'
+      }`}>
+        {/* Top Hamburger Menu Button - Circular */}
+        <div className="flex-shrink-0 p-4 flex items-center justify-center">
+          <button
+            onClick={() => setIsSidebarExpanded(!isSidebarExpanded)}
+            className={`
+              w-12 h-12 rounded-full bg-muted flex items-center justify-center
+              transition-all duration-200 active:scale-95
+              ${theme === 'dark'
+                ? 'shadow-[inset_1px_1px_2px_rgba(0,0,0,0.2),inset_-1px_-1px_2px_rgba(255,255,255,0.03)] hover:shadow-[inset_0.5px_0.5px_1px_rgba(0,0,0,0.2),inset_-0.5px_-0.5px_1px_rgba(255,255,255,0.05)]'
+                : 'shadow-[inset_1px_1px_2px_rgba(0,0,0,0.05),inset_-1px_-1px_2px_rgba(255,255,255,0.5)] hover:shadow-[inset_0.5px_0.5px_1px_rgba(0,0,0,0.05),inset_-0.5px_-0.5px_1px_rgba(255,255,255,0.6)]'
+              }
+            `}
+          >
+            <Bars3Icon className={`h-6 w-6 transition-transform duration-300 ${isSidebarExpanded ? 'rotate-90' : ''} ${theme === 'dark' ? 'text-muted-foreground' : 'text-muted-foreground'}`} />
+          </button>
         </div>
 
-        {/* Navigation */}
-        <div className="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
+        {/* Spacer */}
+        <div className="flex-shrink-0 h-8" />
+
+        {/* Navigation - Rounded Rectangular Buttons */}
+        <div className="flex-1 px-3 py-4 space-y-3 overflow-y-auto">
           {navigation.map((item) => {
             const Icon = item.icon;
             return (
               <Link
                 key={item.name}
                 to={item.href}
-                className={`
-                  relative flex items-center px-4 py-3 rounded-lg text-sm font-medium
-                  transition-colors duration-300 ease-in-out will-change-[background-color,color]
-                  ${item.current
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-                  }
-                `}
+                className="relative flex items-center group w-full h-14"
               >
-                {/* Smooth animated border indicator */}
-                <div
+                {/* Icon Container - Absolutely positioned to prevent movement */}
+                <div 
+                  className={`absolute flex-shrink-0 w-14 h-14 flex items-center justify-center transition-all duration-300 ease-in-out ${
+                    isSidebarExpanded ? 'left-3' : 'left-1/2 -translate-x-1/2'
+                  }`}
+                >
+                  {item.current ? (
+                    <div
+                      className={`
+                        relative w-14 h-14 rounded-lg flex items-center justify-center bg-muted
+                        ${theme === 'dark'
+                          ? 'shadow-[inset_1px_1px_2px_rgba(0,0,0,0.2),inset_-1px_-1px_2px_rgba(255,255,255,0.03)]'
+                          : 'shadow-[inset_1px_1px_2px_rgba(0,0,0,0.05),inset_-1px_-1px_2px_rgba(255,255,255,0.5)]'
+                        }
+                      `}
+                    >
+                      <Icon 
+                        className="h-6 w-6 text-primary" 
+                      />
+                      
+                      {/* Active Indicator - Horizontal line beneath icon (only when collapsed) */}
+                      {!isSidebarExpanded && (
+                        <div 
+                          key={location.pathname}
+                          className="absolute bottom-2 left-1/2 -translate-x-1/2 w-6 h-0.5 bg-primary rounded-full animate-expand"
+                        />
+                      )}
+                    </div>
+                  ) : (
+                    <div className="relative w-14 h-14 flex items-center justify-center">
+                      <Icon 
+                        className="h-6 w-6 text-muted-foreground" 
+                      />
+                    </div>
+                  )}
+                </div>
+                
+                {/* Tab Name - Only visible when expanded, slides in from left */}
+                <span 
                   className={`
-                    absolute left-0 top-1/2 -translate-y-1/2 h-8 w-1 bg-primary rounded-r-full
-                    transition-all duration-300 ease-in-out origin-center will-change-transform
-                    ${item.current
-                      ? 'opacity-100 scale-y-100'
-                      : 'opacity-0 scale-y-0'
+                    text-sm font-normal whitespace-nowrap overflow-hidden
+                    transition-all duration-300 ease-in-out
+                    ${item.current 
+                      ? 'text-primary' 
+                      : 'text-muted-foreground'
+                    }
+                    ${isSidebarExpanded 
+                      ? 'opacity-100 max-w-full ml-[5rem]' 
+                      : 'opacity-0 max-w-0 ml-0'
                     }
                   `}
-                />
-                <Icon 
-                  className={`
-                    h-5 w-5 mr-3 transition-colors duration-300 ease-in-out will-change-colors
-                    ${item.current ? 'text-primary' : 'text-muted-foreground'}
-                  `} 
-                />
-                <span className="relative z-10">{item.name}</span>
+                >
+                  {item.name}
+                </span>
+                
+                {/* Active Indicator - Vertical bar on right edge (only when expanded) */}
+                {item.current && isSidebarExpanded && (
+                  <div 
+                    key={`${location.pathname}-vertical`}
+                    className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-l-full animate-expand-vertical"
+                  />
+                )}
               </Link>
             );
           })}
         </div>
 
-        {/* Upgrade section - optional, can be removed */}
-        <div className="flex-shrink-0 border-t border-border p-4">
-          <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-lg p-4 text-center">
-            <ThemeToggle />
+        {/* Spacer */}
+        <div className="flex-shrink-0 h-8" />
+
+        {/* Bottom Theme Toggle Button - Circular */}
+        <div className="flex-shrink-0 p-4 flex items-center justify-center">
+          <div
+            className={`
+              w-12 h-12 rounded-full bg-muted flex items-center justify-center
+              transition-all duration-200
+              ${theme === 'dark'
+                ? 'shadow-[inset_1px_1px_2px_rgba(0,0,0,0.2),inset_-1px_-1px_2px_rgba(255,255,255,0.03)] hover:shadow-[inset_0.5px_0.5px_1px_rgba(0,0,0,0.2),inset_-0.5px_-0.5px_1px_rgba(255,255,255,0.05)]'
+                : 'shadow-[inset_1px_1px_2px_rgba(0,0,0,0.05),inset_-1px_-1px_2px_rgba(255,255,255,0.5)] hover:shadow-[inset_0.5px_0.5px_1px_rgba(0,0,0,0.05),inset_-0.5px_-0.5px_1px_rgba(255,255,255,0.6)]'
+              }
+            `}
+          >
+            <div className="[&>button]:h-6 [&>button]:w-6 [&>button]:bg-transparent [&>button]:hover:bg-transparent [&>button]:shadow-none [&>button]:p-0">
+              <ThemeToggle />
+            </div>
           </div>
         </div>
-      </div>
-
-      {/* Main content wrapper - adds margin for sidebar */}
-      <div className="lg:pl-64">
-        {/* This div ensures the content is pushed to the right of the sidebar */}
       </div>
     </>
   );

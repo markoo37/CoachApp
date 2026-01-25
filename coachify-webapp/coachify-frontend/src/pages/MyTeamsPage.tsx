@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Users, Plus, Loader2 } from "lucide-react";
 import TopHeader from "../components/TopHeader";
+import { useSidebarPadding } from "../hooks/useSidebarPadding";
 import ErrorModal from "../components/ui/ErrorModal";
 import TeamsTable from "../components/ui/teams-table";
 import { TeamsTableSkeleton } from "../components/TeamsTableSkeleton";
@@ -27,6 +28,7 @@ import {
 type PendingDelete = { teamId: number; name: string } | null;
 
 export default function MyTeamsPage() {
+  const sidebarPadding = useSidebarPadding();
   const [showAddTeamForm, setShowAddTeamForm] = useState(false);
   const [teamName, setTeamName] = useState("");
   const [pendingDelete, setPendingDelete] = useState<PendingDelete>(null);
@@ -92,7 +94,7 @@ export default function MyTeamsPage() {
 
   return (
     <>
-      <div className="min-h-screen bg-background lg:pl-64">
+      <div className={`min-h-screen bg-background transition-all duration-300 ease-in-out ${sidebarPadding}`}>
         <TopHeader title="Csapataim" subtitle="Csapatok és sportolók kezelése" />
 
         <div className="px-8 py-16">

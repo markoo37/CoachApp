@@ -6,6 +6,7 @@ import Notification from '../components/ui/Notification';
 import ErrorModal from '../components/ui/ErrorModal';
 import ConfirmationModal from '../components/ui/ConfirmationModal';
 import TopHeader from '../components/TopHeader';
+import { useSidebarPadding } from '../hooks/useSidebarPadding';
 
 interface CoachStats {
   teamCount: number;
@@ -21,6 +22,7 @@ interface ChangePasswordData {
 
 export default function ProfilePage() {
   const { firstName, lastName, email, userType } = useAuthStore();
+  const sidebarPadding = useSidebarPadding();
   const [stats, setStats] = useState<CoachStats>({ teamCount: 0, athleteCount: 0, playersWithAccounts: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [showPasswordForm, setShowPasswordForm] = useState(false);
@@ -116,7 +118,7 @@ export default function ProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background lg:pl-64 flex items-center justify-center px-8 py-16">
+      <div className={`min-h-screen bg-background flex items-center justify-center px-8 py-16 transition-all duration-300 ease-in-out ${sidebarPadding}`}>
         <div className="animate-spin rounded-full h-12 w-12 border-2 border-primary border-t-transparent"></div>
       </div>
     );
@@ -124,7 +126,7 @@ export default function ProfilePage() {
 
   return (
     <>
-      <div className="min-h-screen bg-background lg:pl-64">
+      <div className={`min-h-screen bg-background transition-all duration-300 ease-in-out ${sidebarPadding}`}>
         <TopHeader title="Profil" subtitle="Fiók kezelése és coaching statisztikák" />
         
         <div className="px-8 py-16">
