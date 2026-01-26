@@ -1,8 +1,10 @@
 ﻿using CoachCRM.Data;
 using CoachCRM.Dtos;
+using CoachCRM.Errors;
 using CoachCRM.Extensions;
 using CoachCRM.Guards;
 using CoachCRM.Models;
+using CoachCRM.Security;
 using CoachCRM.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -16,10 +18,14 @@ namespace CoachCRM.Controllers;
 public class WellnessChecksController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly ICurrentUserContext _current;
+    private readonly IAccessGuard _access;
 
-    public WellnessChecksController(AppDbContext context)
+    public WellnessChecksController(AppDbContext context, ICurrentUserContext current, IAccessGuard access)
     {
         _context = context;
+        _current = current;
+        _access = access;
     }
 
     // ════════════════════════════════════════════════
@@ -30,51 +36,30 @@ public class WellnessChecksController : ControllerBase
     [HttpGet("me/today")]
     public async Task<ActionResult<WellnessCheckDto?>> GetMyToday()
     {
-        int userId = User.GetUserId();
+        var athlete = await _access.RequireCurrentAthleteAsync();
 
-        var playerUser = await _context.PlayerUsers
-            .Include(pu => pu.Athlete)
-            .FirstOrDefaultAsync(pu => pu.Id == userId);
-
-        if (playerUser?.Athlete == null)
-            return NotFound("Player profile not found.");
-
-        var athlete = playerUser.Athlete;
         var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
 
         var entity = await _context.WellnessChecks
-            .Include(w => w.Athlete)
-            .FirstOrDefaultAsync(w =>
-                w.AthleteId == athlete.Id &&
-                w.Date == today);
+            .AsNoTracking()
+            .Include(w => w.Athlete) // később kiváltjuk projectionnel
+            .FirstOrDefaultAsync(w => w.AthleteId == athlete.Id && w.Date == today);
 
-        if (entity == null)
-            return Ok(null); // még nem töltötte ki
-
-        return Ok(entity.ToDto());
+        return Ok(entity == null ? null : entity.ToDto());
     }
 
     // POST: api/wellnesschecks/me/today
     [HttpPost("me/today")]
     public async Task<ActionResult<WellnessCheckDto>> CreateMyToday([FromBody] CreateWellnessCheckDto dto)
     {
-        int userId = User.GetUserId();
-
-        var playerUser = await _context.PlayerUsers
-            .Include(pu => pu.Athlete)
-            .FirstOrDefaultAsync(pu => pu.Id == userId);
-
-        if (playerUser?.Athlete == null)
-            return NotFound("Player profile not found.");
-
-        var athlete = playerUser.Athlete;
+        var athlete = await _access.RequireCurrentAthleteAsync();
         var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
 
-        bool alreadyExists = await _context.WellnessChecks
+        var alreadyExists = await _context.WellnessChecks
             .AnyAsync(w => w.AthleteId == athlete.Id && w.Date == today);
 
         if (alreadyExists)
-            return Conflict(new { message = "A mai napra már kitöltötted a wellness checket." });
+            throw new ConflictAppException(ErrorCodes.WellnessAlreadyExists);
 
         var entity = new WellnessCheck
         {
@@ -92,9 +77,7 @@ public class WellnessChecksController : ControllerBase
         _context.WellnessChecks.Add(entity);
         await _context.SaveChangesAsync();
 
-        // hogy működjön a ToDto, kell az Athlete navigation (vagy beállítjuk kézzel)
         entity.Athlete = athlete;
-
         return Ok(entity.ToDto());
     }
 
@@ -112,7 +95,7 @@ public class WellnessChecksController : ControllerBase
 
         var ownsTeam = await _context.CoachOwnsTeamAsync(coachId, teamId);
         if (!ownsTeam)
-            return Forbid("This team does not belong to the current coach.");
+            throw new ForbiddenAppException(ErrorCodes.TeamNotOwned);
 
         var targetDate = date ?? DateOnly.FromDateTime(DateTime.UtcNow.Date);
 
@@ -134,34 +117,19 @@ public class WellnessChecksController : ControllerBase
         int athleteId,
         [FromQuery] int days = 7)
     {
-        int userId = User.GetUserId();
-
-        var coach = await _context.Coaches
-            .FirstOrDefaultAsync(c => c.UserId == userId);
-
-        if (coach == null)
-            return Unauthorized("Coach not found.");
-
-        // csak olyan sportolót láthasson, aki hozzá tartozik
-        var isLinked = await _context.CoachAthletes
-            .AnyAsync(ca => ca.CoachId == coach.Id && ca.AthleteId == athleteId);
-
-        if (!isLinked)
-            return Forbid("This athlete is not linked to the current coach.");
+        var coach = await _access.RequireCoachAsync();
+        await _access.RequireAthleteLinkedAsync(coach.Id, athleteId);
 
         var fromDate = DateOnly.FromDateTime(DateTime.UtcNow.Date.AddDays(-days + 1));
 
         var checks = await _context.WellnessChecks
-            .Include(w => w.Athlete)
+            .AsNoTracking()
+            .Include(w => w.Athlete) // később: projection
             .Where(w => w.AthleteId == athleteId && w.Date >= fromDate)
             .OrderByDescending(w => w.Date)
             .ToListAsync();
 
-        var dtoList = checks
-            .Select(w => w.ToDto())
-            .ToList();
-
-        return Ok(dtoList);
+        return Ok(checks.Select(w => w.ToDto()).ToList());
     }
     
     [HttpGet("athletes/{athleteId}/wellness-index")]
@@ -170,20 +138,20 @@ public class WellnessChecksController : ControllerBase
         [FromQuery] DateOnly? from,
         [FromQuery] DateOnly? to)
     {
-        int userId = User.GetUserId();
+        var userId = _current.UserId;
 
         var coach = await _context.Coaches
             .FirstOrDefaultAsync(c => c.UserId == userId);
 
         if (coach == null)
-            return Unauthorized("Coach not found.");
+            throw new ForbiddenAppException(ErrorCodes.CoachNotFound);
 
         // csak olyan sportolót láthasson, aki az edzőhöz tartozik
         bool isLinked = await _context.CoachAthletes
             .AnyAsync(ca => ca.CoachId == coach.Id && ca.AthleteId == athleteId);
 
         if (!isLinked)
-            return Forbid("This athlete is not linked to the current coach.");
+            throw new ForbiddenAppException(ErrorCodes.AthleteNotLinked);
 
         var query = _context.WellnessChecks
             .Where(w => w.AthleteId == athleteId);
@@ -215,7 +183,7 @@ public class WellnessChecksController : ControllerBase
         int teamId,
         [FromQuery] int take = 14)
     {
-        int userId = User.GetUserId();
+        var userId = _current.UserId;
 
         if (take < 1) take = 1;
         if (take > 14) take = 14; // max 14
@@ -225,14 +193,14 @@ public class WellnessChecksController : ControllerBase
             .FirstOrDefaultAsync(c => c.UserId == userId);
 
         if (coach == null)
-            return Unauthorized("Coach not found.");
+            throw new ForbiddenAppException(ErrorCodes.CoachNotFound);
 
-        bool ownsTeam = await _context.Teams
+        var ownsTeam = await _context.Teams
             .AsNoTracking()
             .AnyAsync(t => t.Id == teamId && t.CoachId == coach.Id);
 
         if (!ownsTeam)
-            return Forbid("This team does not belong to the current coach.");
+            throw new ForbiddenAppException(ErrorCodes.TeamNotOwned);
 
         // 1) csapat sportolói
         var athletes = await _context.TeamMemberships
@@ -317,14 +285,14 @@ public class WellnessChecksController : ControllerBase
         [FromQuery] DateOnly? to,
         [FromQuery] bool includeEmptyDays = true)
     {
-        int userId = User.GetUserId();
+        var userId = _current.UserId;
 
         var coach = await _context.Coaches
             .AsNoTracking()
             .FirstOrDefaultAsync(c => c.UserId == userId);
 
         if (coach == null)
-            return Unauthorized("Coach not found.");
+            throw new ForbiddenAppException(ErrorCodes.CoachNotFound);
 
         // Csak a saját csapatát láthassa
         bool ownsTeam = await _context.Teams
@@ -332,7 +300,7 @@ public class WellnessChecksController : ControllerBase
             .AnyAsync(t => t.Id == teamId && t.CoachId == coach.Id);
 
         if (!ownsTeam)
-            return Forbid("This team does not belong to the current coach.");
+            throw new ForbiddenAppException(ErrorCodes.TeamNotOwned);
 
         // Intervallum meghatározás
         var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
@@ -435,7 +403,7 @@ public class WellnessChecksController : ControllerBase
 
         range = (range ?? "14d").Trim().ToLowerInvariant();
 
-        int days = range switch
+        var days = range switch
         {
             "7d" or "1w" or "week" => 7,
             "14d" or "2w" => 14,
@@ -456,7 +424,7 @@ public class WellnessChecksController : ControllerBase
         [FromQuery] int take = 14,
         [FromQuery] int windowDays = 7)
     {
-        int userId = User.GetUserId();
+        var userId = _current.UserId;
 
         if (take < 1) take = 1;
         if (take > 30) take = 30; // engedjük 30-ig, ha később kell
@@ -468,14 +436,14 @@ public class WellnessChecksController : ControllerBase
             .FirstOrDefaultAsync(c => c.UserId == userId);
 
         if (coach == null)
-            return Unauthorized("Coach not found.");
+            throw new ForbiddenAppException(ErrorCodes.CoachNotFound);
 
-        bool ownsTeam = await _context.Teams
+        var ownsTeam = await _context.Teams
             .AsNoTracking()
             .AnyAsync(t => t.Id == teamId && t.CoachId == coach.Id);
 
         if (!ownsTeam)
-            return Forbid("This team does not belong to the current coach.");
+            throw new ForbiddenAppException(ErrorCodes.TeamNotOwned);
 
         // 1) csapat sportolói (alap roster)
         var roster = await _context.TeamMemberships

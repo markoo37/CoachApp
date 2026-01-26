@@ -10,7 +10,7 @@ module.exports = {
   	extend: {
   		fontFamily: {
   			sans: [
-  				'Inter',
+  				'Montserrat',
   				'system-ui',
   				'sans-serif'
   			]

@@ -6,11 +6,18 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.IdentityModel.Tokens;
+using CoachCRM.Middleware;
+using CoachCRM.Security;
+using CoachCRM.Guards;
 
 var builder = WebApplication.CreateBuilder(args);
 
 DotNetEnv.Env.Load(Path.Combine(builder.Environment.ContentRootPath, ".env"));
 
+builder.Services.AddScoped<IAccessGuard, AccessGuard>();
+builder.Services.AddTransient<ExceptionHandlingMiddleware>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 // Add services to the container.
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -131,6 +138,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.UseCors("AllowFrontend");
 

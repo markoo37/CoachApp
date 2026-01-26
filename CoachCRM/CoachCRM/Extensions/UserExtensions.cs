@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using CoachCRM.Errors;
 
 namespace CoachCRM.Extensions;
 
@@ -6,7 +7,7 @@ public static class UserExtensions
 {
     public static int GetUserId(this ClaimsPrincipal user)
         => int.Parse(user.FindFirst("userId")?.Value
-                     ?? throw new UnauthorizedAccessException("userId claim not found"));
+                     ?? throw new UnauthorizedAccessException(ErrorCodes.MissingClaimUserId));
 
     public static string GetEmail(this ClaimsPrincipal user)
         => user.FindFirst("email")?.Value

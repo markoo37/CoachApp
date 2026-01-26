@@ -167,16 +167,9 @@ export default function Navbar() {
         <div className="flex-shrink-0 p-4 flex items-center justify-center">
           <button
             onClick={() => setIsSidebarExpanded(!isSidebarExpanded)}
-            className={`
-              w-12 h-12 rounded-full bg-muted flex items-center justify-center
-              transition-all duration-200 active:scale-95
-              ${theme === 'dark'
-                ? 'shadow-[inset_1px_1px_2px_rgba(0,0,0,0.2),inset_-1px_-1px_2px_rgba(255,255,255,0.03)] hover:shadow-[inset_0.5px_0.5px_1px_rgba(0,0,0,0.2),inset_-0.5px_-0.5px_1px_rgba(255,255,255,0.05)]'
-                : 'shadow-[inset_1px_1px_2px_rgba(0,0,0,0.05),inset_-1px_-1px_2px_rgba(255,255,255,0.5)] hover:shadow-[inset_0.5px_0.5px_1px_rgba(0,0,0,0.05),inset_-0.5px_-0.5px_1px_rgba(255,255,255,0.6)]'
-              }
-            `}
+            className="w-12 h-12 rounded-full bg-muted flex items-center justify-center transition-all duration-200 active:scale-95 hover:bg-muted/80"
           >
-            <Bars3Icon className={`h-6 w-6 transition-transform duration-300 ${isSidebarExpanded ? 'rotate-90' : ''} ${theme === 'dark' ? 'text-muted-foreground' : 'text-muted-foreground'}`} />
+            <Bars3Icon className={`h-6 w-6 transition-transform duration-300 flex-shrink-0 ${isSidebarExpanded ? 'rotate-90' : ''} text-muted-foreground`} />
           </button>
         </div>
 
@@ -184,7 +177,7 @@ export default function Navbar() {
         <div className="flex-shrink-0 h-8" />
 
         {/* Navigation - Rounded Rectangular Buttons */}
-        <div className="flex-1 px-3 py-4 space-y-3 overflow-y-auto">
+        <div className="flex-1 px-3 py-4 space-y-3 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           {navigation.map((item) => {
             const Icon = item.icon;
             return (
@@ -201,16 +194,10 @@ export default function Navbar() {
                 >
                   {item.current ? (
                     <div
-                      className={`
-                        relative w-14 h-14 rounded-lg flex items-center justify-center bg-muted
-                        ${theme === 'dark'
-                          ? 'shadow-[inset_1px_1px_2px_rgba(0,0,0,0.2),inset_-1px_-1px_2px_rgba(255,255,255,0.03)]'
-                          : 'shadow-[inset_1px_1px_2px_rgba(0,0,0,0.05),inset_-1px_-1px_2px_rgba(255,255,255,0.5)]'
-                        }
-                      `}
+                      className="relative w-14 h-14 rounded-lg flex items-center justify-center bg-foreground/10"
                     >
                       <Icon 
-                        className="h-6 w-6 text-primary" 
+                        className="h-6 w-6 text-primary flex-shrink-0" 
                       />
                       
                       {/* Active Indicator - Horizontal line beneath icon (only when collapsed) */}
@@ -224,7 +211,7 @@ export default function Navbar() {
                   ) : (
                     <div className="relative w-14 h-14 flex items-center justify-center">
                       <Icon 
-                        className="h-6 w-6 text-muted-foreground" 
+                        className="h-6 w-6 text-muted-foreground flex-shrink-0" 
                       />
                     </div>
                   )}
@@ -265,17 +252,8 @@ export default function Navbar() {
 
         {/* Bottom Theme Toggle Button - Circular */}
         <div className="flex-shrink-0 p-4 flex items-center justify-center">
-          <div
-            className={`
-              w-12 h-12 rounded-full bg-muted flex items-center justify-center
-              transition-all duration-200
-              ${theme === 'dark'
-                ? 'shadow-[inset_1px_1px_2px_rgba(0,0,0,0.2),inset_-1px_-1px_2px_rgba(255,255,255,0.03)] hover:shadow-[inset_0.5px_0.5px_1px_rgba(0,0,0,0.2),inset_-0.5px_-0.5px_1px_rgba(255,255,255,0.05)]'
-                : 'shadow-[inset_1px_1px_2px_rgba(0,0,0,0.05),inset_-1px_-1px_2px_rgba(255,255,255,0.5)] hover:shadow-[inset_0.5px_0.5px_1px_rgba(0,0,0,0.05),inset_-0.5px_-0.5px_1px_rgba(255,255,255,0.6)]'
-              }
-            `}
-          >
-            <div className="[&>button]:h-6 [&>button]:w-6 [&>button]:bg-transparent [&>button]:hover:bg-transparent [&>button]:shadow-none [&>button]:p-0">
+          <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center transition-all duration-200 hover:bg-muted/80">
+            <div className="flex items-center justify-center w-full h-full [&>button]:h-6 [&>button]:w-6 [&>button]:bg-transparent [&>button]:hover:bg-transparent [&>button]:shadow-none [&>button]:p-0 [&>button]:m-0 [&>button]:flex [&>button]:items-center [&>button]:justify-center [&>button]:relative">
               <ThemeToggle />
             </div>
           </div>
