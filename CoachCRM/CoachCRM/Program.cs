@@ -9,6 +9,7 @@ using Microsoft.IdentityModel.Tokens;
 using CoachCRM.Middleware;
 using CoachCRM.Security;
 using CoachCRM.Guards;
+using CoachCRM.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,6 +19,9 @@ builder.Services.AddScoped<IAccessGuard, AccessGuard>();
 builder.Services.AddTransient<ExceptionHandlingMiddleware>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
+builder.Services.AddScoped<IWellnessQueryService, WellnessQueryService>();
+builder.Services.AddScoped<IPlayerWellnessService, PlayerWellnessService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
 // Add services to the container.
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -65,8 +69,12 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
 
 // JWT Auth konfiguráció
-var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET")
-    ?? throw new InvalidOperationException("JWT_SECRET environment variable not set");
+var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET");
+if (string.IsNullOrWhiteSpace(jwtSecret))
+{
+    throw new InvalidOperationException("JWT_SECRET environment variable is missing.");
+}
+    
 
 builder.Services.AddAuthentication(options =>
     {
