@@ -1,27 +1,33 @@
-﻿using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text;
 using CoachCRM.Data;
 using CoachCRM.Dtos;
 using CoachCRM.Errors;
 using CoachCRM.Models;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
-using Microsoft.IdentityModel.Tokens;
 
-namespace CoachCRM.Services;
+namespace CoachCRM.Services.Auth;
 
 public class AuthService : IAuthService
 {
     private readonly AppDbContext _db;
-    private readonly ILogger<AuthService> _logger; 
+    private readonly ILogger<AuthService> _logger;
+    private readonly IJwtTokenService _jwtService;
+    private readonly IRefreshTokenService _refreshTokenService;
+    private readonly IRefreshCookieService _refreshCookieService;
 
-    public AuthService(AppDbContext db, ILogger<AuthService> logger)
+    public AuthService(AppDbContext db,
+        ILogger<AuthService> logger,
+        IConfiguration config,
+        IJwtTokenService jwtService, 
+        IRefreshTokenService refreshTokenService,
+        IRefreshCookieService refreshCookieService)
     {
         _db = db;
         _logger = logger;
+        _jwtService = jwtService;
+        _refreshTokenService = refreshTokenService;
+        _refreshCookieService = refreshCookieService;
     }
     
     public async Task RegisterCoachAsync(RegisterDto dto, CancellationToken ct = default)
@@ -33,8 +39,7 @@ public class AuthService : IAuthService
             throw new ConflictAppException(ErrorCodes.AuthUserAlreadyExists);
 
         CreatePasswordHash(dto.Password, out var hash, out var salt);
-
-        // Transaction: enterprise / konzisztens mentés
+        
         await using var tx = await _db.Database.BeginTransactionAsync(ct);
 
         var coach = new Coach
@@ -79,8 +84,7 @@ public class AuthService : IAuthService
 
         // 3) password hash
         CreatePasswordHash(dto.Password, out var hash, out var salt);
-
-        // 4) tranzakció (konzisztencia)
+        
         await using var tx = await _db.Database.BeginTransactionAsync(ct);
 
         if (athlete == null)
@@ -145,15 +149,13 @@ public class AuthService : IAuthService
 
             throw new UnauthorizedAppException(ErrorCodes.AuthInvalidCredentials);
         }
-
-        // JWT (itt még maradhat helperből)
-        var token = CreateCoachToken(user);
-
+        
+        var token = _jwtService.CreateCoachToken(user);
         // Refresh token persist
-        var refreshToken = GenerateRefreshToken();
-        refreshToken.UserId = user.Id;
+        var refresh = _refreshTokenService.Generate();
+        refresh.UserId = user.Id;
 
-        _db.RefreshTokens.Add(refreshToken);
+        _db.RefreshTokens.Add(refresh);
 
         // last login
         user.LastLoginAt = DateTime.UtcNow;
@@ -161,7 +163,7 @@ public class AuthService : IAuthService
         await _db.SaveChangesAsync(ct);
 
         // cookie
-        SetRefreshCookie(http, refreshToken);
+        _refreshCookieService.Set(http, refresh.Token, refresh.Expires);
 
         return token;
     }
@@ -180,18 +182,18 @@ public class AuthService : IAuthService
         if (user == null || !VerifyPasswordHash(dto.Password, user.PasswordHash, user.PasswordSalt))
             throw new UnauthorizedAppException(ErrorCodes.AuthInvalidCredentials);
 
-        var token = CreatePlayerToken(user);
+        var accessToken = _jwtService.CreatePlayerToken(user);
 
-        var refreshToken = GenerateRefreshToken();
-        refreshToken.UserId = user.Id;
+        var refresh = _refreshTokenService.Generate();
+        refresh.UserId = user.Id;
 
-        _db.RefreshTokens.Add(refreshToken);
+        _db.RefreshTokens.Add(refresh);
 
         user.LastLoginAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync(ct);
 
-        SetRefreshCookie(http, refreshToken);
+        _refreshCookieService.Set(http, refresh.Token, refresh.Expires);
 
         var firstMembership = user.Athlete.TeamMemberships.FirstOrDefault();
 
@@ -209,7 +211,7 @@ public class AuthService : IAuthService
                 : new List<string>()
         };
 
-        return (token, profile);
+        return (accessToken, profile);
     }
 
     public async Task<(bool Exists, bool HasAccount)> CheckEmailAsync(CheckEmailDto dto, CancellationToken ct = default)
@@ -227,35 +229,31 @@ public class AuthService : IAuthService
         if (!http.Request.Cookies.TryGetValue("refreshToken", out var rtValue))
             throw new UnauthorizedAppException(ErrorCodes.AuthRefreshMissing);
 
-        var oldRt = await _db.RefreshTokens
-            .FirstOrDefaultAsync(x => x.Token == rtValue, ct);
+        var oldRt = await _db.RefreshTokens.FirstOrDefaultAsync(x => x.Token == rtValue, ct);
 
         if (oldRt == null || oldRt.IsExpired || oldRt.IsRevoked)
             throw new UnauthorizedAppException(ErrorCodes.AuthRefreshInvalid);
 
-        // régi revoke
         oldRt.Revoked = DateTime.UtcNow;
 
-        // új refresh
-        var newRt = GenerateRefreshToken();
+        var newRt = _refreshTokenService.Generate();
         newRt.UserId = oldRt.UserId;
         _db.RefreshTokens.Add(newRt);
 
-        // új JWT
         var baseUser = await _db.Users.FindAsync(new object?[] { oldRt.UserId }, ct);
         if (baseUser == null)
             throw new UnauthorizedAppException(ErrorCodes.AuthUserNotFound);
 
         var newJwt = baseUser switch
         {
-            CoachUser cu  => CreateCoachToken(await LoadCoachUserAsync(cu.Id, ct)),
-            PlayerUser pu => CreatePlayerToken(await LoadPlayerUserAsync(pu.Id, ct)),
+            CoachUser cu  => _jwtService.CreateCoachToken(await LoadCoachUserAsync(cu.Id, ct)),
+            PlayerUser pu => _jwtService.CreatePlayerToken(await LoadPlayerUserAsync(pu.Id, ct)),
             _ => throw new InvalidOperationException("Unknown user type in refresh flow")
         };
 
         await _db.SaveChangesAsync(ct);
 
-        SetRefreshCookie(http, newRt);
+        _refreshCookieService.Set(http, newRt.Token, newRt.Expires);
 
         return newJwt;
     }
@@ -272,7 +270,7 @@ public class AuthService : IAuthService
             }
         }
 
-        DeleteRefreshCookie(http);
+        _refreshCookieService.Delete(http);
     }
 
     // -------------------------
@@ -295,70 +293,6 @@ public class AuthService : IAuthService
         return hmac.ComputeHash(Encoding.UTF8.GetBytes(password)).SequenceEqual(storedHash);
     }
 
-    private string CreateCoachToken(CoachUser user)
-    {
-        var secret = Environment.GetEnvironmentVariable("JWT_SECRET");
-
-        var claims = new[]
-        {
-            new Claim("userId", user.Id.ToString()),
-            new Claim("email", user.Email),
-            new Claim("firstName", user.Coach.FirstName),
-            new Claim("lastName", user.Coach.LastName),
-            new Claim("userType", "Coach"),
-            new Claim("coachId", user.CoachId.ToString())
-        };
-
-        return GenerateJwtToken(claims, secret);
-    }
-
-    private string CreatePlayerToken(PlayerUser user)
-    {
-        var secret = Environment.GetEnvironmentVariable("JWT_SECRET");
-
-        var claims = new[]
-        {
-            new Claim("userId", user.Id.ToString()),
-            new Claim("athleteId", user.AthleteId.ToString()),
-            new Claim("email", user.Email),
-            new Claim("firstName", user.Athlete.FirstName),
-            new Claim("lastName", user.Athlete.LastName),
-            new Claim("userType", "Player")
-        };
-
-        return GenerateJwtToken(claims, secret);
-    }
-
-    private static string GenerateJwtToken(IEnumerable<Claim> claims, string secret)
-    {
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
-        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha512Signature);
-
-        var tokenDescriptor = new SecurityTokenDescriptor
-        {
-            Subject = new ClaimsIdentity(claims),
-            Expires = DateTime.UtcNow.AddMinutes(10),
-            SigningCredentials = creds
-        };
-
-        var handler = new JwtSecurityTokenHandler();
-        return handler.WriteToken(handler.CreateToken(tokenDescriptor));
-    }
-
-    private static RefreshToken GenerateRefreshToken()
-    {
-        var randomBytes = new byte[64];
-        using var rng = RandomNumberGenerator.Create();
-        rng.GetBytes(randomBytes);
-
-        return new RefreshToken
-        {
-            Token   = Convert.ToBase64String(randomBytes),
-            Expires = DateTime.UtcNow.AddDays(30),
-            Created = DateTime.UtcNow
-        };
-    }
-
     private async Task<CoachUser> LoadCoachUserAsync(int userId, CancellationToken ct)
         => await _db.CoachUsers.Include(u => u.Coach).FirstAsync(u => u.Id == userId, ct);
 
@@ -369,25 +303,4 @@ public class AuthService : IAuthService
                     .ThenInclude(tm => tm.Team)
                     .ThenInclude(t => t.Coach)
             .FirstAsync(u => u.Id == userId, ct);
-
-    private static void SetRefreshCookie(HttpContext http, RefreshToken rt)
-    {
-        http.Response.Cookies.Append("refreshToken", rt.Token, new CookieOptions
-        {
-            HttpOnly = true,
-            Secure   = true,
-            SameSite = SameSiteMode.None,
-            Expires  = rt.Expires
-        });
-    }
-
-    private static void DeleteRefreshCookie(HttpContext http)
-    {
-        http.Response.Cookies.Delete("refreshToken", new CookieOptions
-        {
-            HttpOnly = true,
-            Secure   = true,
-            SameSite = SameSiteMode.None
-        });
-    }
 }

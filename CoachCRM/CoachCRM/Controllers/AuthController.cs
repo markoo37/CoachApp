@@ -1,17 +1,8 @@
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
 using CoachCRM.Data;
-using CoachCRM.Models;
 using CoachCRM.Dtos;
-using CoachCRM.Extensions;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using System.Security.Cryptography;
-using System.Text;
 using CoachCRM.Services;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.IdentityModel.Tokens;
-using Microsoft.Extensions.Logging;
 
 namespace CoachCRM.Controllers
 {

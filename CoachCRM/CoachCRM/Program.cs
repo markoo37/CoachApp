@@ -10,19 +10,27 @@ using CoachCRM.Middleware;
 using CoachCRM.Security;
 using CoachCRM.Guards;
 using CoachCRM.Services;
+using CoachCRM.Services.Auth;
 
 var builder = WebApplication.CreateBuilder(args);
 
+
 DotNetEnv.Env.Load(Path.Combine(builder.Environment.ContentRootPath, ".env"));
 
+builder.Configuration.AddEnvironmentVariables();
+
+// Add services to the container.
 builder.Services.AddScoped<IAccessGuard, AccessGuard>();
 builder.Services.AddTransient<ExceptionHandlingMiddleware>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserContext, CurrentUserContext>();
 builder.Services.AddScoped<IWellnessQueryService, WellnessQueryService>();
 builder.Services.AddScoped<IPlayerWellnessService, PlayerWellnessService>();
+builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
+builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
+builder.Services.AddScoped<IRefreshCookieService, RefreshCookieService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
-// Add services to the container.
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -56,11 +64,11 @@ builder.Services.AddSwaggerGen(c =>
 
 
 
-var host = Environment.GetEnvironmentVariable("DB_HOST");
-var port = Environment.GetEnvironmentVariable("DB_PORT");
-var dbName = Environment.GetEnvironmentVariable("DB_NAME");
-var user = Environment.GetEnvironmentVariable("DB_USER");
-var password = Environment.GetEnvironmentVariable("DB_PASSWORD");
+var host = builder.Configuration["DB_HOST"];
+var port     = builder.Configuration["DB_PORT"];
+var dbName   = builder.Configuration["DB_NAME"];
+var user     = builder.Configuration["DB_USER"];
+var password = builder.Configuration["DB_PASSWORD"];
 
 var connectionString = $"Host={host};Port={port};Database={dbName};Username={user};Password={password}";
 Console.WriteLine($"[DB] ConnectionString: {connectionString}");
@@ -69,12 +77,10 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
 
 // JWT Auth konfiguráció
-var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET");
+var jwtSecret = builder.Configuration["JWT_SECRET"];
 if (string.IsNullOrWhiteSpace(jwtSecret))
-{
     throw new InvalidOperationException("JWT_SECRET environment variable is missing.");
-}
-    
+
 
 builder.Services.AddAuthentication(options =>
     {
